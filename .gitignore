@@ -1,0 +1,36 @@
+# Node.js
+node_modules/
+
+# Logs
+*.log
+logs/
+backend/logs/
+
+# Build frontend
+frontend/build/
+
+# Dependências lock duplicadas
+**/.package-lock.json
+
+# Testes temporários
+*.test.js
+*.spec.js
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Outros
+.env
+.env.*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Arquivos de coverage
+coverage/
+
+# Arquivos de cache
+.cache/ 

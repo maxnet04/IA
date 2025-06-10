@@ -1,0 +1,543 @@
+const HistoricalDataRepository = require('../repositories/HistoricalDataRepository');
+const PredictionHistoryRepository = require('../repositories/PredictionHistoryRepository');
+const PredictiveAnalysisService = require('../services/PredictiveAnalysisService');
+const { Parser } = require('json2csv');
+
+/**
+ * Controlador para análise preditiva
+ */
+class PredictiveAnalysisController {
+    constructor(historicalDataRepository, predictionHistoryRepository) {
+        this.historicalDataRepository = historicalDataRepository || new HistoricalDataRepository();
+        this.predictionHistoryRepository = predictionHistoryRepository || new PredictionHistoryRepository();
+        this.predictiveService = new PredictiveAnalysisService(this.historicalDataRepository);
+    }
+
+    /**
+     * Obtém previsão de volume para um produto em uma data específica
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async getPredictedVolume(req, res) {
+        try {
+            const { date, productId } = req.query;
+
+            if (!date || !productId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetros date e productId são obrigatórios'
+                });
+            }
+
+            const prediction = await this.predictiveService.predictVolume(date, productId);
+            return res.status(200).json({
+                success: true,
+                data: prediction
+            });
+        } catch (error) {
+            console.error('Erro ao obter previsão de volume:', error);
+            // Verifica se é erro de dados insuficientes e retorna mensagem específica
+            if (error.message && error.message.includes('Dados históricos insuficientes')) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Erro ao obter previsão de volume',
+                    details: error.message,
+                    suggestion: 'Tente outro produto ou adicione mais dados históricos'
+                });
+            }
+            
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao obter previsão de volume',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Detecta anomalias nos dados históricos
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async detectAnomalies(req, res) {
+        try {
+            const { productId, startDate, endDate, severity, limit } = req.query;
+
+            if (!productId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro productId é obrigatório'
+                });
+            }
+
+            // Log para depuração
+            console.log(`Detectando anomalias para: productId=${productId}, startDate=${startDate}, endDate=${endDate}, severity=${severity}, limit=${limit}`);
+
+            const anomalies = await this.predictiveService.detectAnomalies(productId, startDate, endDate, severity, limit);
+            return res.status(200).json({
+                success: true,
+                data: anomalies
+            });
+        } catch (error) {
+            console.error('Erro ao detectar anomalias:', error);
+            
+            // Verifica se é erro de dados insuficientes e retorna mensagem específica
+            if (error.message && error.message.includes('Dados históricos insuficientes')) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Dados insuficientes para análise de anomalias',
+                    details: error.message,
+                    suggestion: 'Tente outro produto com mais histórico ou aguarde a coleta de mais dados'
+                });
+            }
+            
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao detectar anomalias',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Gera recomendações baseadas nas análises
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async getRecommendations(req, res) {
+        try {
+            const { productId } = req.query;
+
+            if (!productId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro productId é obrigatório'
+                });
+            }
+
+            const recommendations = await this.predictiveService.generateRecommendations(productId);
+            return res.status(200).json({
+                success: true,
+                data: recommendations
+            });
+        } catch (error) {
+            console.error('Erro ao gerar recomendações:', error);
+            
+            // Verifica se é erro de dados insuficientes e retorna mensagem específica
+            if (error.message && error.message.includes('Dados históricos insuficientes')) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Dados insuficientes para gerar recomendações',
+                    details: error.message,
+                    suggestion: 'Tente outro produto com mais histórico ou aguarde a coleta de mais dados'
+                });
+            }
+            
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao gerar recomendações',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Obtém métricas detalhadas para um produto
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async getDetailedMetrics(req, res) {
+        try {
+            const { productId, startDate, endDate } = req.query;
+
+            if (!productId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro productId é obrigatório'
+                });
+            }
+
+            const metrics = await this.predictiveService.getMetrics(productId, startDate, endDate);
+            return res.status(200).json({
+                success: true,
+                data: metrics
+            });
+        } catch (error) {
+            console.error('Erro ao obter métricas:', error);
+            
+            // Verifica se é erro de dados insuficientes e retorna mensagem específica
+            if (error.message && error.message.includes('Dados históricos insuficientes')) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Dados insuficientes para calcular métricas',
+                    details: error.message,
+                    suggestion: 'Tente outro produto com mais histórico ou aguarde a coleta de mais dados'
+                });
+            }
+            
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao obter métricas',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Exporta dados de análise em formato CSV
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async exportData(req, res) {
+        try {
+            const { type } = req.params;
+            const { productId, startDate, endDate } = req.query;
+
+            if (!productId) {
+                return res.status(400).json({ 
+                    message: 'ID do produto é obrigatório' 
+                });
+            }
+
+            let data;
+            try {
+                switch (type) {
+                    case 'anomalies':
+                        data = await this.predictiveService.detectAnomalies(productId, startDate, endDate);
+                        break;
+                    case 'recommendations':
+                        data = await this.predictiveService.generateRecommendations(productId);
+                        break;
+                    case 'metrics':
+                        data = await this.predictiveService.getMetrics(productId, startDate, endDate);
+                        break;
+                    default:
+                        return res.status(400).json({ 
+                            message: 'Tipo de exportação inválido' 
+                        });
+                }
+            } catch (serviceError) {
+                // Captura erro de dados insuficientes
+                if (serviceError.message && serviceError.message.includes('Dados históricos insuficientes')) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Dados insuficientes para exportar ${type}`,
+                        details: serviceError.message,
+                        suggestion: 'Tente outro produto com mais histórico ou aguarde a coleta de mais dados'
+                    });
+                }
+                throw serviceError; // Re-lança o erro para ser capturado pelo catch externo
+            }
+
+            if (!data || (Array.isArray(data) && data.length === 0)) {
+                return res.status(404).json({ 
+                    message: 'Nenhum dado encontrado para exportação' 
+                });
+            }
+
+            // Converte os dados para CSV
+            const fields = Object.keys(Array.isArray(data) ? data[0] : data);
+            const parser = new Parser({ fields });
+            const csv = parser.parse(Array.isArray(data) ? data : [data]);
+
+            // Configura o cabeçalho para download
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', `attachment; filename=${type}_${productId}_${new Date().toISOString()}.csv`);
+
+            return res.send(csv);
+        } catch (error) {
+            console.error('Erro ao exportar dados:', error);
+            return res.status(500).json({ 
+                message: 'Erro ao exportar dados',
+                error: error.message 
+            });
+        }
+    }
+
+    /**
+     * Obtém histórico de previsões para um produto
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async getPredictionHistory(req, res) {
+        try {
+            const { productId, startDate, endDate } = req.query;
+            
+            if (!productId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro productId é obrigatório'
+                });
+            }
+            
+            const history = await this.predictiveService.getPredictionHistory(productId, startDate, endDate);
+            return res.status(200).json({
+                success: true,
+                data: history
+            });
+        } catch (error) {
+            console.error('Erro ao obter histórico de previsões:', error);
+            return res.status(500).json({ 
+                success: false,
+                error: error.message 
+            });
+        }
+    }
+
+    /**
+     * Marca uma notificação como lida
+     * @param {Object} req - Request do Express
+     * @param {Object} res - Response do Express
+     */
+    async markNotificationAsRead(req, res) {
+        try {
+            const { notificationId } = req.params;
+            
+            if (!notificationId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'ID da notificação é obrigatório'
+                });
+            }
+            
+            const result = await this.predictiveService.markNotificationAsRead(notificationId);
+            return res.status(200).json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            console.error('Erro ao marcar notificação como lida:', error);
+            
+            if (error.message.includes('não encontrada')) {
+                return res.status(404).json({ 
+                    success: false,
+                    error: error.message 
+                });
+            } else {
+                return res.status(500).json({ 
+                    success: false,
+                    error: error.message 
+                });
+            }
+        }
+    }
+
+    /**
+     * Obtém análise completa de volume com histórico e previsões
+     * @param {Object} req Request
+     * @param {Object} res Response
+     */
+    async getVolumeAnalysis(req, res) {
+        try {
+            const { productId, targetDate, monthsBack = 3, monthsForward = 2 } = req.query;
+            
+            if (!productId || !targetDate) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'productId e targetDate são obrigatórios'
+                });
+            }
+
+            const daysForward = parseInt(monthsForward);
+            
+            const historicalData = await this.predictiveService.getVolumeHistory(
+                productId,
+                targetDate,
+                monthsBack
+            );
+            
+            const rawPredictions = await this.predictiveService.getPredictions(
+                productId,
+                targetDate,
+                daysForward
+            );
+            
+            // Formatar dados históricos no formato desejado
+            const formattedHistorical = historicalData.map(h => ({
+                date: h.date.split('T')[0], // Formato YYYY-MM-DD
+                volume: Number(h.volume)
+            }));
+            
+            // Formatar previsões no formato desejado - corrigindo o campo 'predictedVolume'
+            const formattedPredictions = rawPredictions.map(p => ({
+                date: p.date.split('T')[0], // Formato YYYY-MM-DD
+                predictedVolume: Number(p.predictedVolume || 0), // Usar p.predictedVolume em vez de p.volume e garantir não-nulo
+                confidence: Number(p.confidence) / 100 // Converter para decimal (0-1)
+            }));
+            
+            // Calcular tendência com base nos volumes históricos
+            const volumes = formattedHistorical.map(h => h.volume);
+            const lastIndex = volumes.length - 1;
+            const trend = lastIndex > 0 
+                ? (volumes[lastIndex] - volumes[0]) / volumes[0]
+                : 0;
+            
+            return res.json({
+                success: true,
+                data: {
+                    historical: formattedHistorical,
+                    predictions: formattedPredictions,
+                    metadata: {
+                        trend: Number(trend.toFixed(2)),
+                        calculatedAt: new Date().toISOString(),
+                        dataQuality: historicalData.length >= 3 ? 'high' : 'low',
+                        isAggregate: productId === 'ALL'
+                    }
+                }
+            });
+            
+        } catch (error) {
+            console.error('Erro ao obter análise de volume:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao processar análise de volume',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Formata os dados históricos e previstos para visualização em gráfico
+     * @param {Array} historicalData Dados históricos
+     * @param {Array} predictions Previsões
+     * @returns {Array} Série temporal unificada com dados históricos e previstos
+     * @private
+     */
+    formatDataForChart(historicalData, predictions) {
+        // Combinar todas as datas (histórico e previsão) em uma única linha do tempo
+        const allDates = [
+            ...historicalData.map(h => h.date),
+            ...predictions.map(p => p.date)
+        ].sort();
+
+        // Criar um objeto que mapeia cada data para um objeto de dados completo
+        const dataByDate = {};
+        
+        // Inicializar com valores vazios (null) para todas as datas
+        allDates.forEach(date => {
+            dataByDate[date] = { 
+                date, 
+                volume: null,         // Para dados históricos 
+                predictedVolume: null, // Para dados previstos
+                confidence: null,      // Confiança da previsão
+                type: null             // Tipo do dado: 'historical' ou 'prediction'
+            };
+        });
+        
+        // Preencher com dados históricos
+        historicalData.forEach(item => {
+            if (dataByDate[item.date]) {
+                dataByDate[item.date].volume = item.volume;
+                dataByDate[item.date].type = 'historical';
+            }
+        });
+        
+        // Preencher com dados previstos para datas futuras
+        predictions.forEach(item => {
+            if (dataByDate[item.date]) {
+                dataByDate[item.date].predictedVolume = item.volume;
+                dataByDate[item.date].confidence = item.confidence;
+                if (!dataByDate[item.date].volume) { // Se não tiver volume real, é uma previsão futura
+                    dataByDate[item.date].type = 'prediction';
+                }
+            }
+        });
+        
+        // Calcular previsões retroativas para datas históricas
+        // Isso nos permite comparar o que o modelo teria previsto vs. o que realmente aconteceu
+        this.calculateRetroactivePredictions(dataByDate, historicalData);
+        
+        // Converter de volta para array e ordenar por data
+        return Object.values(dataByDate).sort((a, b) => 
+            new Date(a.date) - new Date(b.date)
+        );
+    }
+    
+    /**
+     * Calcula previsões retroativas para datas históricas
+     * Isso permite comparar valores reais com o que o modelo teria previsto
+     * @param {Object} dataByDate Mapa de dados por data
+     * @param {Array} historicalData Dados históricos
+     * @private
+     */
+    calculateRetroactivePredictions(dataByDate, historicalData) {
+        if (historicalData.length < 7) return; // Precisamos de pelo menos 7 dias para calcular
+        
+        // Para cada data no mapa, se for um dado histórico, calcular o que teria sido previsto
+        const historicalDates = historicalData.map(h => h.date).sort();
+        
+        // Começar do 8º dia, pois precisamos de 7 dias anteriores para calcular a média móvel
+        for (let i = 7; i < historicalDates.length; i++) {
+            const targetDate = historicalDates[i];
+            const item = dataByDate[targetDate];
+            
+            if (item && item.type === 'historical') {
+                // Obter os 7 dias anteriores (para média móvel)
+                const previousDates = historicalDates.slice(i-7, i);
+                const previousData = previousDates.map(date => dataByDate[date]);
+                
+                // Calcular média móvel simples (como uma simulação do que o modelo teria previsto)
+                const avgVolume = previousData.reduce((sum, data) => sum + data.volume, 0) / previousData.length;
+                
+                // Calcular tendência dos dados anteriores
+                const trend = this.calculateSimpleTrend(previousData);
+                
+                // Aplicar o modelo simplificado (média móvel + tendência)
+                const predictedVolume = Math.round(avgVolume * (1 + trend));
+                
+                // Calcular confiança simulada baseada no erro relativo
+                // (maior variabilidade = menor confiança)
+                const variance = this.calculateVariance(previousData.map(d => d.volume));
+                const meanVolume = avgVolume;
+                const coeffOfVariation = Math.sqrt(variance) / meanVolume;
+                const confidence = Math.max(0.3, Math.min(0.9, 1 - coeffOfVariation));
+                
+                // Atualizar os campos
+                item.predictedVolume = predictedVolume;
+                item.confidence = parseFloat(confidence.toFixed(2));
+            }
+        }
+    }
+    
+    /**
+     * Calcula uma tendência simples baseada em dados históricos
+     * @param {Array} data Dados para cálculo de tendência
+     * @returns {number} Tendência calculada (entre -1 e 1)
+     * @private
+     */
+    calculateSimpleTrend(data) {
+        if (data.length < 4) return 0;
+        
+        // Dividir os dados ao meio
+        const midPoint = Math.floor(data.length / 2);
+        const firstHalf = data.slice(0, midPoint);
+        const secondHalf = data.slice(midPoint);
+        
+        // Calcular médias de cada metade
+        const firstHalfAvg = firstHalf.reduce((sum, item) => sum + item.volume, 0) / firstHalf.length;
+        const secondHalfAvg = secondHalf.reduce((sum, item) => sum + item.volume, 0) / secondHalf.length;
+        
+        // Calcular tendência relativa
+        if (firstHalfAvg === 0) return 0;
+        const trend = (secondHalfAvg - firstHalfAvg) / firstHalfAvg;
+        
+        // Limitar entre -0.3 e 0.3 para não exagerar a tendência
+        return Math.max(-0.3, Math.min(0.3, trend));
+    }
+    
+    /**
+     * Calcula a variância de um conjunto de dados
+     * @param {Array} data Array de números
+     * @returns {number} Variância calculada
+     * @private
+     */
+    calculateVariance(data) {
+        if (data.length <= 1) return 0;
+        
+        const mean = data.reduce((sum, val) => sum + val, 0) / data.length;
+        const squareDiffs = data.map(val => Math.pow(val - mean, 2));
+        return squareDiffs.reduce((sum, val) => sum + val, 0) / data.length;
+    }
+}
+
+module.exports = PredictiveAnalysisController; 

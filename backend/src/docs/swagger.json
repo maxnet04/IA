@@ -1,0 +1,1064 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "SUAT IA API",
+    "description": "API para análise preditiva e gestão de incidentes do SUAT IA",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API base path"
+    }
+  ],
+  "paths": {
+    "/incidents": {
+      "get": {
+        "summary": "Busca incidentes por período",
+        "description": "Retorna incidentes filtrados por produto e período",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "PRODUTO_A"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos agregados)"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-01-01"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-12-31"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de incidentes encontrados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Incident"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/consolidated": {
+      "get": {
+        "summary": "Busca incidentes consolidados",
+        "description": "Retorna incidentes consolidados por data",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "PRODUTO_A"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos)"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Categoria para filtrar os incidentes"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de incidentes consolidados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsolidatedIncident"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/anomalies": {
+      "get": {
+        "summary": "Busca anomalias",
+        "description": "Retorna incidentes marcados como anomalias",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "PRODUTO_A"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos)"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de anomalias encontradas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Anomaly"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/category": {
+      "get": {
+        "summary": "Busca incidentes por categoria",
+        "description": "Retorna incidentes filtrados por categoria",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "PRODUTO_A"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos)"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de incidentes da categoria",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Incident"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/daily-volumes": {
+      "get": {
+        "summary": "Busca volumes diários",
+        "description": "Retorna volumes consolidados por dia",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "PRODUTO_A"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos)"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de volumes diários",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DailyVolume"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/category-distribution": {
+      "get": {
+        "summary": "Busca distribuição por categoria",
+        "description": "Retorna a distribuição de incidentes por categoria",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "PRODUTO_A"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos)"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Distribuição por categoria",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryDistribution"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/predictive/scenarios": {
+      "get": {
+        "summary": "Gera cenários preditivos",
+        "description": "Gera múltiplos cenários (base, otimista, pessimista) para análise preditiva",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "PRODUTO_A"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos)"
+          },
+          {
+            "name": "baseDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Data de referência para previsão"
+          },
+          {
+            "name": "monthsBack",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 3
+            },
+            "description": "Meses anteriores para análise"
+          },
+          {
+            "name": "monthsForward",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 2
+            },
+            "description": "Meses futuros para previsão"
+          },
+          {
+            "name": "optimisticFactor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "default": 15
+            },
+            "description": "Percentual de aumento para cenário otimista"
+          },
+          {
+            "name": "pessimisticFactor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "default": 10
+            },
+            "description": "Percentual de redução para cenário pessimista"
+          },
+          {
+            "name": "riskLevel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["low", "medium", "high"],
+              "default": "medium"
+            },
+            "description": "Nível de risco para análise"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cenários gerados com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scenarios"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/predictive/seasonality": {
+      "get": {
+        "summary": "Analisa sazonalidade",
+        "description": "Analisa padrões sazonais nos dados históricos",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos)"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "groupBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["day_of_week", "month", "hour", "week_of_year"],
+              "default": "day_of_week"
+            },
+            "description": "Tipo de agrupamento para análise sazonal"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Análise de sazonalidade concluída",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Seasonality"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/predictive/influenceFactors": {
+      "get": {
+        "summary": "Analisa fatores de influência",
+        "description": "Identifica e quantifica fatores que influenciam os incidentes",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos)"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fatores de influência identificados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfluenceFactors"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/predictive/periodComparison": {
+      "get": {
+        "summary": "Compara períodos",
+        "description": "Compara dados entre diferentes períodos",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos)"
+          },
+          {
+            "name": "currentPeriodStart",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "currentPeriodEnd",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "comparisonType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["year_over_year", "custom"],
+              "default": "year_over_year"
+            }
+          },
+          {
+            "name": "customPeriodStart",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "customPeriodEnd",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comparação entre períodos concluída",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodComparison"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/predictive/recommendations": {
+      "get": {
+        "summary": "Gera recomendações",
+        "description": "Gera recomendações baseadas na análise dos dados",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID do produto (use 'ALL' para todos os produtos)"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 3
+            },
+            "description": "Número máximo de recomendações"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recomendações geradas com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recommendations"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Incident": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "product_id": {
+            "type": "string"
+          },
+          "incident_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "DATA_CRIACAO": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "DATA_ENCERRAMENTO": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "CATEGORIA": {
+            "type": "string"
+          },
+          "GRUPO_ATUAL": {
+            "type": "string"
+          },
+          "GRUPO_DIRECIONADO": {
+            "type": "string"
+          },
+          "PRIORIDADE": {
+            "type": "string"
+          },
+          "PROBLEMA": {
+            "type": "string"
+          },
+          "SOLUCAO": {
+            "type": "string"
+          },
+          "USU_TRATAMENTO": {
+            "type": "string"
+          },
+          "ANALISE": {
+            "type": "string"
+          },
+          "ACAO": {
+            "type": "string"
+          },
+          "volume": {
+            "type": "integer"
+          },
+          "is_anomaly": {
+            "type": "integer",
+            "enum": [0, 1]
+          },
+          "anomaly_type": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsolidatedIncident": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "ID do produto ou 'ALL' para dados agregados"
+          },
+          "incident_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "volume": {
+            "type": "integer",
+            "description": "Volume total (soma dos volumes quando product_id='ALL')"
+          },
+          "CATEGORIA": {
+            "type": "string",
+            "description": "Categoria única ou lista concatenada quando product_id='ALL'"
+          },
+          "GRUPO_ATUAL": {
+            "type": "string",
+            "description": "Grupo único ou lista concatenada quando product_id='ALL'"
+          },
+          "incident_count": {
+            "type": "integer",
+            "description": "Contagem total de incidentes no período"
+          }
+        }
+      },
+      "Anomaly": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "ID do produto ou 'ALL' para dados agregados"
+          },
+          "incident_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "volume": {
+            "type": "integer",
+            "description": "Volume total (soma dos volumes quando product_id='ALL')"
+          },
+          "CATEGORIA": {
+            "type": "string",
+            "description": "Categoria única ou lista concatenada quando product_id='ALL'"
+          },
+          "GRUPO_ATUAL": {
+            "type": "string",
+            "description": "Grupo único ou lista concatenada quando product_id='ALL'"
+          },
+          "anomaly_type": {
+            "type": "string",
+            "description": "Tipo(s) de anomalia, concatenados quando product_id='ALL'"
+          },
+          "incident_count": {
+            "type": "integer",
+            "description": "Contagem total de anomalias no período"
+          }
+        }
+      },
+      "DailyVolume": {
+        "type": "object",
+        "properties": {
+          "incident_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "total_volume": {
+            "type": "integer"
+          }
+        }
+      },
+      "CategoryDistribution": {
+        "type": "object",
+        "properties": {
+          "CATEGORIA": {
+            "type": "string"
+          },
+          "total_volume": {
+            "type": "integer"
+          },
+          "count": {
+            "type": "integer"
+          }
+        }
+      },
+      "Scenarios": {
+        "type": "object",
+        "properties": {
+          "baseScenario": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "predictedVolume": {
+                  "type": "number"
+                },
+                "confidence": {
+                  "type": "number"
+                },
+                "confidenceUpper": {
+                  "type": "number"
+                },
+                "confidenceLower": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "optimisticScenario": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioData"
+            }
+          },
+          "pessimisticScenario": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioData"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "baselineMetrics": {
+                "type": "object",
+                "properties": {
+                  "totalVolume": {
+                    "type": "number"
+                  },
+                  "avgDailyVolume": {
+                    "type": "number"
+                  }
+                }
+              },
+              "optimisticImpact": {
+                "type": "number"
+              },
+              "pessimisticImpact": {
+                "type": "number"
+              },
+              "riskAssessment": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ScenarioData": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "predictedVolume": {
+            "type": "number"
+          }
+        }
+      },
+      "Seasonality": {
+        "type": "object",
+        "properties": {
+          "heatmapData": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            }
+          },
+          "insights": {
+            "type": "object",
+            "properties": {
+              "peakDays": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "peakMonths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "lowestPeriods": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "seasonalityStrength": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "InfluenceFactors": {
+        "type": "object",
+        "properties": {
+          "factors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "impact": {
+                  "type": "number"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "correlationMatrix": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "PeriodComparison": {
+        "type": "object",
+        "properties": {
+          "currentPeriod": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "volume": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "previousPeriod": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "volume": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "comparison": {
+            "type": "object",
+            "properties": {
+              "overallGrowth": {
+                "type": "number"
+              },
+              "highestDifference": {
+                "type": "object",
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "difference": {
+                    "type": "number"
+                  }
+                }
+              },
+              "lowestDifference": {
+                "type": "object",
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "difference": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Recommendations": {
+        "type": "object",
+        "properties": {
+          "recommendations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "priority": {
+                  "type": "string",
+                  "enum": ["Alta", "Média", "Baixa"]
+                },
+                "category": {
+                  "type": "string"
+                },
+                "impactPercentage": {
+                  "type": "number"
+                },
+                "supportingEvidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+} 
