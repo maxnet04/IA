@@ -154,8 +154,8 @@ function insertIncidentAsync(db, values) {
     return new Promise((resolve, reject) => {
         db.run(
             `INSERT INTO incidents (
-                product_id, incident_date, DATA_CRIACAO, DATA_ENCERRAMENTO, CATEGORIA, GRUPO_ATUAL, GRUPO_DIRECIONADO, PRIORIDADE, PROBLEMA, SOLUCAO, USU_TRATAMENTO, ANALISE, ACAO, volume, is_anomaly, anomaly_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                product_id, incident_date, DATA_CRIACAO, DATA_ENCERRAMENTO, CATEGORIA, GRUPO_DIRECIONADO, PRIORIDADE, ACAO, volume, is_anomaly, anomaly_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             values,
             function (err) {
                 if (err) reject(err);
@@ -236,12 +236,7 @@ async function insertIncidentsForProduct(productId, startDate, endDate) {
                 null,
                 randomChoice(INCIDENT_CATEGORIES),
                 randomChoice(GROUPS),
-                randomChoice(GROUPS),
                 randomChoice(PRIORITIES),
-                'Problema simulado para testes',
-                'Solução simulada',
-                'usu_teste',
-                'Análise simulada',
                 randomChoice(['RESOLVIDO', 'DIRECIONADO', 'CANCELADO']),
                 1,
                 isAnomaly,

@@ -7,8 +7,8 @@ const Dashboard = () => {
     const { predictions, loading, error } = usePredictions();
 
     return (
-        <Grid container spacing={3}>
-            <Grid item xs={12} md={6} lg={4}>
+        <Grid container spacing={3} sx={{ width: '100%', maxWidth: 'none' }}>
+            <Grid item xs={12} md={6} lg={6} xl={4}>
                 <PredictionsCard 
                     predictions={predictions}
                     loading={loading}

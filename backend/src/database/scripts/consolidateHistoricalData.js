@@ -37,7 +37,7 @@ async function consolidate() {
                             const volume = incidents.length;
                             const categories = incidents.map(i => i.CATEGORIA);
                             const priorities = incidents.map(i => i.PRIORIDADE);
-                            const groups = incidents.map(i => i.GRUPO_ATUAL);
+                            const groups = incidents.map(i => i.GRUPO_DIRECIONADO);
                             // Tempo de resolução: diferença DATA_CRIACAO - DATA_ENCERRAMENTO (em minutos)
                             const resolutionTimes = incidents
                                 .filter(i => i.DATA_CRIACAO && i.DATA_ENCERRAMENTO)

@@ -298,7 +298,7 @@ const DashboardPage = () => {
 
     return (
         <MainLayout>
-            <Box sx={{ py: 2, px: 2 }}>
+            <Box sx={{ py: 2, px: 2, width: '100%', maxWidth: 'none' }}>
                 <Typography variant="h4" component="h1" gutterBottom>
                     Dashboard
                 </Typography>
@@ -309,9 +309,9 @@ const DashboardPage = () => {
                     </Alert>
                 )}
 
-                <Grid container spacing={3} sx={{ mb: 3 }}>
+                <Grid container spacing={3} sx={{ mb: 3, width: '100%', maxWidth: 'none' }}>
                     {/* Cards principais */}
-                    <Grid item xs={12} md={3}>
+                    <Grid item xs={12} sm={6} md={4} lg={3} xl={3}>
                         <Card sx={{ 
                             height: '100%',
                             borderLeft: '4px solid #2196f3', 
@@ -375,7 +375,7 @@ const DashboardPage = () => {
                     </Grid>
 
                     {/* Card de Anomalias */}
-                    <Grid item xs={12} md={3}>
+                    <Grid item xs={12} sm={6} md={4} lg={3} xl={3}>
                         <Card sx={{ 
                             height: '100%',
                             borderLeft: '4px solid #ff9800',
@@ -436,7 +436,7 @@ const DashboardPage = () => {
                     </Grid>
 
                     {/* Card de Recomendações */}
-                    <Grid item xs={12} md={3}>
+                    <Grid item xs={12} sm={6} md={4} lg={3} xl={3}>
                         <Card sx={{ 
                             height: '100%',
                             borderLeft: '4px solid #4caf50',
@@ -497,7 +497,7 @@ const DashboardPage = () => {
                     </Grid>
 
                     {/* Card de Métricas */}
-                    <Grid item xs={12} md={3}>
+                    <Grid item xs={12} sm={6} md={4} lg={3} xl={3}>
                         <Card sx={{ 
                             height: '100%',
                             borderLeft: '4px solid #9c27b0',
@@ -559,7 +559,7 @@ const DashboardPage = () => {
                     </Grid>
 
                 {/* Card de Volume */}
-                <Grid container spacing={3} sx={{ mb: 3 }}>
+                <Grid container spacing={3} sx={{ mb: 3, width: '100%', maxWidth: 'none' }}>
                     <Grid item xs={12}>
                         <Card sx={{ 
                             borderLeft: '4px solid #3f51b5',
@@ -594,17 +594,22 @@ const DashboardPage = () => {
                                     </Button>
                                 }
                             />
-                            <CardContent>
+                            <CardContent sx={{ overflow: 'visible', paddingBottom: '16px !important' }}>
                                 {hasValidTimelineData() ? (
-                                    <Box sx={{ height: 300 }}>
+                                    <Box sx={{ 
+                                        height: { xs: 280, md: 350, lg: 400, xl: 450 }, 
+                                        width: '100%',
+                                        overflow: 'visible',
+                                        paddingBottom: '10px'
+                                    }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <AreaChart
                                                 data={summary.timeline}
                                                 margin={{
-                                                    top: 20,
-                                                    right: 30,
-                                                    left: 20,
-                                                    bottom: 20,
+                                                    top: 15,
+                                                    right: 20,
+                                                    left: 15,
+                                                    bottom: 25,
                                                 }}
                                             >
                                                 <defs>
@@ -683,10 +688,31 @@ const DashboardPage = () => {
                                                     animationEasing="ease-out"
                                                 />
                                                 <Legend 
+                                                    verticalAlign="bottom"
+                                                    height={20}
+                                                    align="center"
                                                     wrapperStyle={{
-                                                        paddingTop: '20px'
+                                                        paddingTop: '0px',
+                                                        paddingBottom: '0px',
+                                                        textAlign: 'center',
+                                                        display: 'flex',
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center',
+                                                        position: 'relative',
+                                                        top: '-10px'
                                                     }}
-                                                    formatter={(value) => <span style={{ color: '#666', fontSize: '14px' }}>{value}</span>}
+                                                    formatter={(value) => (
+                                                        <span style={{ 
+                                                            color: '#666', 
+                                                            fontSize: '14px', 
+                                                            fontWeight: '500',
+                                                            marginLeft: '8px'
+                                                        }}>
+                                                            {value}
+                                                        </span>
+                                                    )}
+                                                    iconType="line"
+                                                    iconSize={18}
                                                 />
                                             </AreaChart>
                                         </ResponsiveContainer>

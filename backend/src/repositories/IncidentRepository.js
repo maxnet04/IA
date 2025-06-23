@@ -10,7 +10,7 @@ class IncidentRepository extends BaseRepository {
     registerTables() {
         const dbManager = DatabaseManager.getInstance();
         
-        // Registra a tabela incidents com a estrutura original
+        // Registra a tabela incidents com a estrutura otimizada
         dbManager.registerTable(
             'incidents',
             `
@@ -18,15 +18,10 @@ class IncidentRepository extends BaseRepository {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 INCIDENTE TEXT NOT NULL,
                 CATEGORIA TEXT NOT NULL,
-                GRUPO_ATUAL TEXT NOT NULL,
                 GRUPO_DIRECIONADO TEXT,
                 DATA_CRIACAO DATETIME NOT NULL,
                 PRIORIDADE TEXT NOT NULL,
-                PROBLEMA TEXT,
-                SOLUCAO TEXT,
                 DATA_ENCERRAMENTO DATETIME,
-                USU_TRATAMENTO TEXT,
-                ANALISE TEXT,
                 ACAO TEXT CHECK(ACAO IN ('CANCELADO', 'RESOLVIDO', 'DIRECIONADO'))
             )
             `
@@ -41,8 +36,8 @@ class IncidentRepository extends BaseRepository {
     async createIncident(incident) {
         const query = `
             INSERT INTO incidents 
-            (INCIDENTE, CATEGORIA, GRUPO_ATUAL, GRUPO_DIRECIONADO, DATA_CRIACAO, PRIORIDADE, PROBLEMA, ANALISE)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (INCIDENTE, CATEGORIA, GRUPO_DIRECIONADO, DATA_CRIACAO, PRIORIDADE)
+            VALUES (?, ?, ?, ?, ?)
         `;
         
         const result = await this.execute(
@@ -50,12 +45,9 @@ class IncidentRepository extends BaseRepository {
             [
                 incident.incidente,
                 incident.categoria,
-                incident.grupoAtual,
                 incident.grupoDirecionado || null,
                 incident.dataCriacao || new Date().toISOString(),
-                incident.prioridade,
-                incident.problema || null,
-                incident.analise || null
+                incident.prioridade
             ]
         );
         
@@ -88,13 +80,8 @@ class IncidentRepository extends BaseRepository {
         const fieldMapping = {
             incidente: 'INCIDENTE',
             categoria: 'CATEGORIA',
-            grupoAtual: 'GRUPO_ATUAL',
             grupoDirecionado: 'GRUPO_DIRECIONADO',
             prioridade: 'PRIORIDADE',
-            problema: 'PROBLEMA',
-            solucao: 'SOLUCAO',
-            usuTratamento: 'USU_TRATAMENTO',
-            analise: 'ANALISE',
             acao: 'ACAO'
         };
         
@@ -193,8 +180,8 @@ class IncidentRepository extends BaseRepository {
         }
         
         if (search) {
-            whereConditions.push('(INCIDENTE LIKE ? OR PROBLEMA LIKE ? OR ANALISE LIKE ?)');
-            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+            whereConditions.push('INCIDENTE LIKE ?');
+            params.push(`%${search}%`);
         }
         
         const whereClause = whereConditions.length > 0 

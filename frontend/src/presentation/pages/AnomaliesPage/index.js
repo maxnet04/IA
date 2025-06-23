@@ -28,7 +28,7 @@ import {
 } from '@mui/material';
 import { 
     Warning as WarningIcon, 
-    FilterList as FilterIcon, 
+    FilterList as FilterListIcon, 
     TrendingUp as TrendingUpIcon,
     TrendingDown as TrendingDownIcon,
     RepeatOne as CyclicIcon,
@@ -178,122 +178,133 @@ const AnomaliesPage = () => {
 
     return (
         <MainLayout>
-            <Box sx={{ py: 2 }}>
-                <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ 
+                py: 1, 
+                px: 0, 
+                width: '100%', 
+                maxWidth: '98%',
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center'
+            }}>
+                <Typography variant="h4" sx={{ 
+                    mb: 2, 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    width: '100%',
+                    maxWidth: '98%',
+                    px: 1
+                }}>
                     <WarningIcon color="warning" sx={{ mr: 1 }} /> 
                     Análise de Anomalias
                 </Typography>
 
-                {/* Filtros */}
-                <Paper 
-                    elevation={3} 
-                    sx={{ 
-                        mb: 3, 
-                        p: 2, 
-                        borderRadius: 2,
-                        background: theme.palette.background.paper,
-                        boxShadow: theme.shadows[3]
-                    }}
-                >
-                    <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-                        <FilterIcon color="primary" />
-                        <Typography variant="h6">Filtros de Pesquisa</Typography>
-                    </Stack>
-                    <Divider sx={{ mb: 2 }} />
-                        <Grid container spacing={2}>
-                        <Grid item xs={12} md={2}>
-                                <TextField
-                                    fullWidth
-                                    label="ID do Produto"
-                                    value={productId}
-                                    onChange={(e) => handleProductIdChange(e.target.value)}
-                                variant="outlined"
-                                />
-                            </Grid>
-                        <Grid item xs={12} md={2}>
-                                <TextField
-                                    fullWidth
-                                    type="date"
-                                    label="Data Inicial"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    InputLabelProps={{ shrink: true }}
-                                variant="outlined"
-                                />
-                            </Grid>
-                        <Grid item xs={12} md={2}>
-                                <TextField
-                                    fullWidth
-                                    type="date"
-                                    label="Data Final"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    InputLabelProps={{ shrink: true }}
-                                variant="outlined"
-                                />
-                            </Grid>
-                        <Grid item xs={12} md={2}>
-                            <FormControl fullWidth variant="outlined">
-                                <InputLabel>Severidade</InputLabel>
-                                <Select
-                                    value={severityFilter}
-                                    onChange={(e) => setSeverityFilter(e.target.value)}
-                                    label="Severidade"
-                                >
-                                    <MenuItem value="">Todas</MenuItem>
-                                    <MenuItem value="ALTA">Alta</MenuItem>
-                                    <MenuItem value="MÉDIA">Média</MenuItem>
-                                    <MenuItem value="BAIXA">Baixa</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={2}>
-                            <FormControl fullWidth variant="outlined">
-                                <InputLabel>Tipo</InputLabel>
-                                <Select
-                                    value={typeFilter}
-                                    onChange={(e) => setTypeFilter(e.target.value)}
-                                    label="Tipo"
-                                >
-                                    <MenuItem value="">Todos</MenuItem>
-                                    <MenuItem value="VOLUME_SPIKE">Volume Spike</MenuItem>
-                                    <MenuItem value="VOLUME_DROP">Volume Drop</MenuItem>
-                                    <MenuItem value="SUSTAINED_INCREASE">Sustained Increase</MenuItem>
-                                    <MenuItem value="SUSTAINED_DECREASE">Sustained Decrease</MenuItem>
-                                    <MenuItem value="CYCLIC_PATTERN">Cyclic Pattern</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={2}>
-                                <Button
-                                    fullWidth
-                                    variant="contained"
-                                    onClick={handleSearch}
-                                    disabled={loading}
-                                    sx={{ height: '56px' }}
-                                >
-                                    {loading ? <CircularProgress size={24} /> : 'Buscar'}
-                                </Button>
-                            </Grid>
-                        </Grid>
-                </Paper>
+                <Grid container spacing={2} sx={{ 
+                    width: '100%', 
+                    maxWidth: '98%',
+                    margin: '0 auto',
+                    justifyContent: 'center'
+                }}>
+                    {/* Filtros */}
+                    <Grid item xs={12}>
+                        <Paper 
+                            elevation={3} 
+                            sx={{ 
+                                mb: 2, 
+                                p: 2, 
+                                borderRadius: 1,
+                                background: theme.palette.background.paper,
+                                boxShadow: theme.shadows[3],
+                                position: 'relative',
+                                '&::before': {
+                                    content: '""',
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '4px',
+                                    height: '100%',
+                                    backgroundColor: theme.palette.primary.main,
+                                    borderRadius: '4px 0 0 4px'
+                                }
+                            }}
+                        >
+                            <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
+                                <FilterListIcon color="primary" />
+                                <Typography variant="h6">Filtros de Pesquisa</Typography>
+                            </Stack>
+                            <Divider sx={{ mb: 2 }} />
+                                <Grid container spacing={2} alignItems="center">
+                                    <Grid item xs={12} sm={3}>
+                                        <TextField
+                                            fullWidth
+                                            type="date"
+                                            label="Data Inicial"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            InputLabelProps={{ shrink: true }}
+                                            variant="outlined"
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={3}>
+                                        <TextField
+                                            fullWidth
+                                            type="date"
+                                            label="Data Final"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            InputLabelProps={{ shrink: true }}
+                                            variant="outlined"
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={3}>
+                                        <FormControl fullWidth variant="outlined">
+                                            <InputLabel>Severidade</InputLabel>
+                                            <Select
+                                                value={severityFilter}
+                                                onChange={(e) => setSeverityFilter(e.target.value)}
+                                                label="Severidade"
+                                            >
+                                                <MenuItem value="">Todas</MenuItem>
+                                                <MenuItem value="ALTA">Alta</MenuItem>
+                                                <MenuItem value="MÉDIA">Média</MenuItem>
+                                                <MenuItem value="BAIXA">Baixa</MenuItem>
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
+                                    <Grid item xs={12} sm={3}>
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            onClick={handleSearch}
+                                            disabled={loading}
+                                            sx={{ height: '56px' }}
+                                        >
+                                            {loading ? <CircularProgress size={24} /> : 'Buscar'}
+                                        </Button>
+                                    </Grid>
+                                </Grid>
+                        </Paper>
+                    </Grid>
 
-                {error && (
-                    <Alert severity="error" sx={{ mb: 3 }}>
-                        {error}
-                    </Alert>
-                )}
+                    {error && (
+                        <Grid item xs={12}>
+                            <Alert severity="error" sx={{ mb: 3 }}>
+                                {error}
+                            </Alert>
+                        </Grid>
+                    )}
 
-                {/* Dashboard de resumo */}
-                {anomalies && anomalies.length > 0 && (
-                    <Grid container spacing={2} sx={{ mb: 5 }}>
+                    {/* Dashboard de resumo */}
+                    {anomalies && anomalies.length > 0 && (
+                        <>
                         <Grid item xs={12} md={4}>
                             <Paper 
                                 elevation={2} 
                                 sx={{ 
                                     p: 2, 
                                     height: '100%', 
-                                    borderRadius: 2,
+                                    borderRadius: 1,
                                     display: 'flex',
                                     flexDirection: 'column',
                                     borderLeft: `4px solid ${theme.palette.primary.main}`,
@@ -352,7 +363,7 @@ const AnomaliesPage = () => {
                                 sx={{ 
                                     p: 2, 
                                     height: '100%', 
-                                    borderRadius: 2,
+                                    borderRadius: 1,
                                     display: 'flex',
                                     flexDirection: 'column',
                                     borderLeft: `4px solid ${theme.palette.warning.main}`,
@@ -411,7 +422,7 @@ const AnomaliesPage = () => {
                                 sx={{ 
                                     p: 2, 
                                     height: '100%', 
-                                    borderRadius: 2, 
+                                    borderRadius: 1, 
                                     display: 'flex',
                                     flexDirection: 'column',
                                     borderLeft: `4px solid ${theme.palette.info.main}`,
@@ -488,18 +499,19 @@ const AnomaliesPage = () => {
                                 </Box>
                             </Paper>
                         </Grid>
-                    </Grid>
-                )}
+                        </>
+                    )}
 
-                {/* Lista de Anomalias */}
-                <Paper 
-                    elevation={3} 
-                    sx={{ 
-                        borderRadius: 2,
-                        background: theme.palette.background.paper,
-                        boxShadow: theme.shadows[3],
-                        overflow: 'hidden',
-                        mt: anomalies && anomalies.length > 0 ? 0 : 4,
+                    {/* Lista de Anomalias */}
+                    <Grid item xs={12}>
+                        <Paper 
+                            elevation={3} 
+                            sx={{ 
+                                borderRadius: 1,
+                                background: theme.palette.background.paper,
+                                boxShadow: theme.shadows[3],
+                                overflow: 'hidden',
+                                mt: anomalies && anomalies.length > 0 ? 0 : 2,
                         position: 'relative',
                         '&::before': {
                             ...(anomalies && anomalies.length > 0 ? {
@@ -663,11 +675,13 @@ const AnomaliesPage = () => {
                             </Typography>
                             </Box>
                         )}
-                    </CardContent>
-                </Paper>
+                        </CardContent>
+                    </Paper>
+                    </Grid>
+                </Grid>
             </Box>
-        </MainLayout>
-    );
-};
-
-export default AnomaliesPage; 
+                  </MainLayout>
+      );
+  };
+  
+  export default AnomaliesPage; 

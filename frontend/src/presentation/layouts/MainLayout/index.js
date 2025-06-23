@@ -187,7 +187,13 @@ const MainLayout = ({ children }) => {
                     backdropFilter: 'blur(20px)'
                 }}
             >
-                <Toolbar>
+                <Toolbar sx={{ 
+                    minHeight: '64px !important',
+                    paddingX: 2,
+                    gap: 1,
+                    flexWrap: 'nowrap',
+                    overflow: 'visible'
+                }}>
                     {isMobile && (
                         <IconButton
                             color="inherit"
@@ -207,7 +213,10 @@ const MainLayout = ({ children }) => {
                             flexGrow: 0, 
                             mr: 4, 
                             fontWeight: 'bold',
-                            letterSpacing: '0.5px'
+                            letterSpacing: '0.5px',
+                            whiteSpace: 'nowrap',
+                            minWidth: 'max-content',
+                            flexShrink: 0
                         }}
                     >
                         SUAT IA
@@ -445,20 +454,22 @@ const MainLayout = ({ children }) => {
                 component="main" 
                 sx={{ 
                     flexGrow: 1, 
-                    py: 4, 
-                    px: 3,
+                    py: 2, 
+                    px: 1,
                     bgcolor: '#f5f5f5',
                     minHeight: 'calc(100vh - 64px - 56px)'
                 }}
             >
-                <Container maxWidth="lg">
+                <Container maxWidth="xl" sx={{ maxWidth: '98% !important' }}>
                     <Paper 
                         elevation={0}
                         sx={{ 
                             borderRadius: 2,
                             bgcolor: 'white',
-                            p: 3,
-                            boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)'
+                            p: 2,
+                            boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)',
+                            width: '100%',
+                            maxWidth: 'none'
                         }}
                     >
                         {children}
@@ -474,7 +485,7 @@ const MainLayout = ({ children }) => {
                     borderTop: '1px solid rgba(0, 0, 0, 0.08)'
                 }}
             >
-                <Container maxWidth="lg">
+                <Container maxWidth="xl" sx={{ maxWidth: '98% !important' }}>
                     <Typography 
                         variant="body2" 
                         color="text.secondary" 

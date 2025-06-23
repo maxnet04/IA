@@ -917,13 +917,36 @@ const PredictiveAnalysis = () => {
     };
 
     return (
-        <Box sx={{ py: 2 }}>
-            <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+        <Box 
+            className="predictive-analysis-container"
+            sx={{ 
+                py: 1, 
+                px: 0, 
+                width: '100%', 
+                maxWidth: '98%',
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center'
+            }}>
+            <Typography variant="h4" sx={{ 
+                mb: 2, 
+                display: 'flex', 
+                alignItems: 'center',
+                width: '100%',
+                maxWidth: '98%',
+                px: 1
+            }}>
                 <AssessmentIcon color="primary" sx={{ mr: 1 }} /> 
                 Análise Preditiva
             </Typography>
             
-            <Grid container spacing={3}>
+            <Grid container spacing={2} sx={{ 
+                width: '100%', 
+                maxWidth: '98%',
+                margin: '0 auto',
+                justifyContent: 'center'
+            }}>
                 {/* Filtros */}
                 <Grid item xs={12}>
                     <Card sx={{ 

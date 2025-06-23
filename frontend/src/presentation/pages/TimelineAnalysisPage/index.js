@@ -535,22 +535,43 @@ const TimelineAnalysisPage = () => {
 
     return (
         <MainLayout>
-            <Box sx={{ py: 2, px: 2 }}>
-                <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ 
+                py: 1, 
+                px: 0, 
+                width: '100%', 
+                maxWidth: '98%',
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center'
+            }}>
+                <Typography variant="h4" sx={{ 
+                    mb: 2, 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    width: '100%',
+                    maxWidth: '98%',
+                    px: 1
+                }}>
                     <TimelineIcon color="primary" sx={{ mr: 1 }} /> 
                     Análise Temporal
                 </Typography>
 
                 <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-                    <Grid container spacing={3}>
+                    <Grid container spacing={2} sx={{ 
+                        width: '100%', 
+                        maxWidth: '98%',
+                        margin: '0 auto',
+                        justifyContent: 'center'
+                    }}>
                         {/* Filtros */}
                         <Grid item xs={12}>
                             <Paper 
                                 elevation={3} 
                                 sx={{ 
-                                    mb: 3, 
+                                    mb: 2, 
                                     p: 2, 
-                                    borderRadius: 2,
+                                    borderRadius: 1,
                                     background: theme.palette.background.paper,
                                     boxShadow: theme.shadows[3],
                                     position: 'relative',
@@ -650,7 +671,6 @@ const TimelineAnalysisPage = () => {
                                         borderLeft: '4px solid #3f51b5',
                                         borderRadius: 1,
                                         transition: 'all 0.3s ease',
-                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                                         '&:hover': {
                                             boxShadow: '0 6px 12px rgba(63, 81, 181, 0.15)'
                                         }

@@ -6,6 +6,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import RecommendationIcon from '@mui/icons-material/Lightbulb';
 import ErrorIcon from '@mui/icons-material/Error';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import CalendarIcon from '@mui/icons-material/CalendarToday';
 import useRecommendations from '../../../application/hooks/useRecommendations';
 import { styles } from './styles';
 
@@ -102,7 +103,7 @@ const RecommendationsCard = ({ productId, date, onError, variant = 'default', bo
       }}>
         <CardHeader 
           title="Recomendações Baseadas em Dados" 
-          avatar={<RecommendationIcon sx={{ color: borderColor, fontSize: 26, background: `rgba(${parseInt(borderColor.slice(1, 3), 16)}, ${parseInt(borderColor.slice(3, 5), 16)}, ${parseInt(borderColor.slice(5, 7), 16)}, 0.1)`, p: 0.8, borderRadius: '50%' }} />}
+          avatar={<RecommendationIcon sx={{ color: borderColor, fontSize: 38, background: `rgba(${parseInt(borderColor.slice(1, 3), 16)}, ${parseInt(borderColor.slice(3, 5), 16)}, ${parseInt(borderColor.slice(5, 7), 16)}, 0.1)`, p: 0.8, borderRadius: '50%' }} />}
           subheader="Principais ações recomendadas baseadas nos dados"
           titleTypographyProps={{ 
             variant: 'h6',
@@ -166,42 +167,21 @@ const RecommendationsCard = ({ productId, date, onError, variant = 'default', bo
                       transform: 'translateY(-2px)'
                     }
                   }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 0.75 }}>
-                      <RecommendationIcon sx={{ 
-                        color: borderColor, 
-                        mt: 0.2, 
-                        mr: 1, 
-                        fontSize: 20,
-                        background: `rgba(${parseInt(borderColor.slice(1, 3), 16)}, ${parseInt(borderColor.slice(3, 5), 16)}, ${parseInt(borderColor.slice(5, 7), 16)}, 0.08)`,
-                        p: 0.4,
-                        borderRadius: '50%'
-                      }} />
-                      <Typography variant="h6" sx={{ fontWeight: 500, lineHeight: 1.3, fontSize: '0.9rem', color: 'rgba(0, 0, 0, 0.75)' }}>
-                        {recommendation.title}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body1" sx={{ 
-                      mb: 1.25, 
-                      flexGrow: 1, 
-                      color: 'text.primary',
-                      fontSize: '0.875rem',
-                      lineHeight: 1.4
-                    }}>
-                      {recommendation.description}
-                    </Typography>
-                    <Box sx={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center',
-                      mt: 'auto',
-                      pt: 0.75,
-                      backgroundColor: 'rgba(0,0,0,0.01)',
-                      mx: -1.75,
-                      px: 1.75,
-                      pb: 0.5,
-                      borderBottomLeftRadius: 6,
-                      borderBottomRightRadius: 6
-                    }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                        <RecommendationIcon sx={{ 
+                          color: borderColor, 
+                          mt: 0.2, 
+                          mr: 1, 
+                          fontSize: 26,
+                          background: `rgba(${parseInt(borderColor.slice(1, 3), 16)}, ${parseInt(borderColor.slice(3, 5), 16)}, ${parseInt(borderColor.slice(5, 7), 16)}, 0.08)`,
+                          p: 0.4,
+                          borderRadius: '50%'
+                        }} />
+                        <Typography variant="h6" sx={{ fontWeight: 500, lineHeight: 1.3, fontSize: '1rem', color: 'rgba(0, 0, 0, 0.75)' }}>
+                          {recommendation.title}
+                        </Typography>
+                      </Box>
                       <Box sx={{ 
                         display: 'inline-block', 
                         px: 1.5, 
@@ -209,28 +189,46 @@ const RecommendationsCard = ({ productId, date, onError, variant = 'default', bo
                         borderRadius: 2, 
                         backgroundColor: recommendation.priority === 'Alta' ? 'rgba(244, 67, 54, 0.1)' : 'rgba(255, 152, 0, 0.1)',
                         color: recommendation.priority === 'Alta' ? '#d32f2f' : '#ed6c02',
-                        fontSize: '0.75rem',
-                        fontWeight: 600
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        flexShrink: 0
                       }}>
                         {recommendation.priority}
                       </Box>
-                      {recommendation.impactPercentage && (
-                        <Box sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.5
+                    </Box>
+                    <Typography variant="body1" sx={{ 
+                      mb: 1,
+                      color: 'text.primary',
+                      fontSize: '1rem',
+                      lineHeight: 1.4
+                    }}>
+                      {recommendation.description}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, mt: 2.50, mb: 1.25 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <CalendarIcon sx={{ fontSize: 14, color: 'action.active', opacity: 0.7 }} />
+                        <Typography variant="caption" sx={{ 
+                          color: 'text.secondary',
+                          fontWeight: 600,
+                          fontSize: '0.875rem'
                         }}>
-                          <InfoIcon sx={{ fontSize: 16, color: 'action.active', opacity: 0.7 }} />
+                          Data: {new Date().toLocaleDateString('pt-BR')}
+                        </Typography>
+                      </Box>
+                      {recommendation.impactPercentage && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <InfoIcon sx={{ fontSize: 14, color: 'action.active', opacity: 0.7 }} />
                           <Typography variant="caption" sx={{ 
                             color: 'text.secondary',
                             fontWeight: 600,
-                            fontSize: '0.8rem'
+                            fontSize: '0.875rem'
                           }}>
                             Impacto: {recommendation.impactPercentage.toFixed(1)}%
                           </Typography>
                         </Box>
                       )}
                     </Box>
+
                   </Box>
                 </Grid>
               ))}

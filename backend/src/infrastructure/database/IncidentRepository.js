@@ -53,7 +53,7 @@ class IncidentRepository {
             DATA_CRIACAO as incident_date,
             COUNT(*) as volume,
             GROUP_CONCAT(DISTINCT CATEGORIA) as CATEGORIA,
-            GROUP_CONCAT(DISTINCT GRUPO_ATUAL) as GRUPO_ATUAL,
+            GROUP_CONCAT(DISTINCT GRUPO_DIRECIONADO) as GRUPO_DIRECIONADO,
             COUNT(*) as incident_count
           FROM incidents 
           WHERE DATA_CRIACAO BETWEEN ? AND ? ${categoryFilter}
@@ -69,7 +69,7 @@ class IncidentRepository {
             DATA_CRIACAO as incident_date,
             COUNT(*) as volume,
             CATEGORIA,
-            GRUPO_ATUAL,
+            GRUPO_DIRECIONADO,
             COUNT(*) as incident_count
           FROM incidents 
           WHERE DATA_CRIACAO BETWEEN ? AND ? ${categoryFilter}
@@ -109,7 +109,7 @@ class IncidentRepository {
             DATA_CRIACAO as incident_date,
             COUNT(*) as volume,
             GROUP_CONCAT(DISTINCT CATEGORIA) as CATEGORIA,
-            GROUP_CONCAT(DISTINCT GRUPO_ATUAL) as GRUPO_ATUAL,
+            GROUP_CONCAT(DISTINCT GRUPO_DIRECIONADO) as GRUPO_DIRECIONADO,
             '' as anomaly_type,
             COUNT(*) as incident_count
           FROM incidents 
@@ -125,7 +125,7 @@ class IncidentRepository {
             DATA_CRIACAO as incident_date,
             COUNT(*) as volume,
             CATEGORIA,
-            GRUPO_ATUAL,
+            GRUPO_DIRECIONADO,
             '' as anomaly_type,
             COUNT(*) as incident_count
           FROM incidents 
@@ -165,7 +165,6 @@ class IncidentRepository {
             DATA_CRIACAO as incident_date,
             COUNT(*) as volume,
             CATEGORIA,
-            GROUP_CONCAT(DISTINCT GRUPO_ATUAL) as GRUPO_ATUAL,
             GROUP_CONCAT(DISTINCT GRUPO_DIRECIONADO) as GRUPO_DIRECIONADO,
             COUNT(*) as incident_count
           FROM incidents 
@@ -182,7 +181,6 @@ class IncidentRepository {
             DATA_CRIACAO as incident_date,
             COUNT(*) as volume,
             CATEGORIA,
-            GRUPO_ATUAL,
             GRUPO_DIRECIONADO,
             COUNT(*) as incident_count
           FROM incidents 
@@ -331,22 +329,16 @@ class IncidentRepository {
       db.run(
         `INSERT INTO incidents (
           product_id, DATA_CRIACAO, DATA_ENCERRAMENTO,
-          CATEGORIA, GRUPO_ATUAL, GRUPO_DIRECIONADO, PRIORIDADE,
-          PROBLEMA, SOLUCAO, USU_TRATAMENTO, ANALISE, ACAO,
+          CATEGORIA, GRUPO_DIRECIONADO, PRIORIDADE, ACAO,
           volume, is_anomaly, anomaly_type
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           incident.product_id,
           incident.DATA_CRIACAO,
           incident.DATA_ENCERRAMENTO,
           incident.CATEGORIA,
-          incident.GRUPO_ATUAL,
           incident.GRUPO_DIRECIONADO,
           incident.PRIORIDADE,
-          incident.PROBLEMA,
-          incident.SOLUCAO,
-          incident.USU_TRATAMENTO,
-          incident.ANALISE,
           incident.ACAO,
           incident.volume || 1,
           incident.is_anomaly || 0,
@@ -378,7 +370,7 @@ class IncidentRepository {
             SUM(volume) as volume,
             COUNT(*) as incident_count,
             GROUP_CONCAT(DISTINCT CATEGORIA) as CATEGORIA,
-            GROUP_CONCAT(DISTINCT GRUPO_ATUAL) as GRUPO_ATUAL
+            GROUP_CONCAT(DISTINCT GRUPO_DIRECIONADO) as GRUPO_DIRECIONADO
           FROM incidents 
           WHERE DATA_CRIACAO BETWEEN ? AND ? ${categoryFilter}
           GROUP BY incident_month
@@ -393,7 +385,7 @@ class IncidentRepository {
             SUM(volume) as volume,
             COUNT(*) as incident_count,
             GROUP_CONCAT(DISTINCT CATEGORIA) as CATEGORIA,
-            GROUP_CONCAT(DISTINCT GRUPO_ATUAL) as GRUPO_ATUAL
+            GROUP_CONCAT(DISTINCT GRUPO_DIRECIONADO) as GRUPO_DIRECIONADO
           FROM incidents 
           WHERE product_id = ? AND DATA_CRIACAO BETWEEN ? AND ? ${categoryFilter}
           GROUP BY incident_month

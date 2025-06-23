@@ -129,9 +129,9 @@ class InfluenceFactorsService {
     const groupVolumes = {};
     const groupFactors = [];
 
-    // Agrupa volumes por grupo atual
+    // Agrupa volumes por grupo direcionado (removido grupo_atual)
     incidents.forEach(incident => {
-      const grupo = incident.GRUPO_ATUAL;
+      const grupo = incident.GRUPO_DIRECIONADO || 'SEM_GRUPO';
       if (!groupVolumes[grupo]) {
         groupVolumes[grupo] = 0;
       }

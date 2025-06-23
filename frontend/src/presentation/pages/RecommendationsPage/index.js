@@ -183,98 +183,117 @@ const RecommendationsPage = () => {
 
     return (
         <MainLayout>
-            <Box sx={{ py: 2 }}>
-                <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ 
+                py: 1, 
+                px: 0, 
+                width: '100%', 
+                maxWidth: '98%',
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center'
+            }}>
+                <Typography variant="h4" sx={{ 
+                    mb: 2, 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    width: '100%',
+                    maxWidth: '98%',
+                    px: 1
+                }}>
                     <RecommendationIcon color="primary" sx={{ mr: 1 }} /> 
                     Recomendações Baseadas em Dados
                 </Typography>
 
                 {/* Filtros */}
-                <Paper 
-                    elevation={3} 
-                    sx={{ 
-                        mb: 3, 
-                        p: 2, 
-                        borderRadius: 2,
-                        background: theme.palette.background.paper,
-                        boxShadow: theme.shadows[3]
-                    }}
-                >
-                    <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-                        <FilterIcon color="primary" />
-                        <Typography variant="h6">Filtros de Pesquisa</Typography>
-                    </Stack>
-                    <Divider sx={{ mb: 2 }} />
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} md={3}>
-                            <TextField
-                                fullWidth
-                                label="ID do Produto"
-                                value={productId}
-                                onChange={(e) => handleProductIdChange(e.target.value)}
-                                variant="outlined"
+                <Grid container spacing={2} sx={{ mb: 2, width: '100%', maxWidth: '98%', margin: '0 auto' }}>
+                    <Grid item xs={12}>
+                        <Card sx={{ 
+                            borderLeft: '4px solid #607d8b',
+                            borderRadius: 1,
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                                boxShadow: '0 6px 12px rgba(96, 125, 139, 0.15)'
+                            }
+                        }}>
+                            <CardHeader 
+                                title="Filtros" 
+                                avatar={<FilterIcon color="primary" />}
                             />
-                        </Grid>
-                        <Grid item xs={12} md={3}>
-                            <TextField
-                                fullWidth
-                                type="date"
-                                label="Data de Referência"
-                                value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                InputLabelProps={{ shrink: true }}
-                                variant="outlined"
-                            />
-                        </Grid>
-                        <Grid item xs={12} md={2}>
-                            <FormControl fullWidth variant="outlined">
-                                <InputLabel id="priority-select-label">Prioridade</InputLabel>
-                                    <Select
-                                    labelId="priority-select-label"
-                                    value={priorityFilter}
-                                    onChange={(e) => setPriorityFilter(e.target.value)}
-                                    label="Prioridade"
-                                >
-                                    <MenuItem value="">Todas</MenuItem>
-                                    <MenuItem value="Alta">Alta</MenuItem>
-                                    <MenuItem value="Média">Média</MenuItem>
-                                    <MenuItem value="Baixa">Baixa</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                        <Grid item xs={12} md={2}>
-                            <FormControl fullWidth variant="outlined">
-                                <InputLabel id="category-select-label">Categoria</InputLabel>
-                                <Select
-                                    labelId="category-select-label"
-                                    value={categoryFilter}
-                                    onChange={(e) => setCategoryFilter(e.target.value)}
-                                    label="Categoria"
-                                >
-                                    <MenuItem value="">Todas</MenuItem>
-                                    <MenuItem value="Capacidade">Capacidade</MenuItem>
-                                    <MenuItem value="Recursos">Recursos</MenuItem>
-                                    <MenuItem value="Planejamento">Planejamento</MenuItem>
-                                    <MenuItem value="Anomalias">Anomalias</MenuItem>
-                                    <MenuItem value="Fatores de Influência">Fatores de Influência</MenuItem>
-                                    <MenuItem value="Análise">Análise</MenuItem>
-                                    <MenuItem value="Estratégia">Estratégia</MenuItem>
-                                </Select>
-                            </FormControl>
-                            </Grid>
-                        <Grid item xs={12} md={2}>
-                                <Button
-                                    fullWidth
-                                    variant="contained"
-                                    onClick={handleSearch}
-                                disabled={loading}
-                                    sx={{ height: '56px' }}
-                                >
-                                {loading ? <CircularProgress size={24} /> : 'Buscar'}
-                                </Button>
-                            </Grid>
-                        </Grid>
-                </Paper>
+                            <CardContent>
+                                <Grid container spacing={2} alignItems="center" sx={{ justifyContent: 'center' }}>
+                                    <Grid item xs={12} md={3}>
+                                        <TextField
+                                            fullWidth
+                                            label="ID do Produto"
+                                            value={productId}
+                                            onChange={(e) => handleProductIdChange(e.target.value)}
+                                            variant="outlined"
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} md={3}>
+                                        <TextField
+                                            fullWidth
+                                            type="date"
+                                            label="Data de Referência"
+                                            value={selectedDate}
+                                            onChange={(e) => setSelectedDate(e.target.value)}
+                                            InputLabelProps={{ shrink: true }}
+                                            variant="outlined"
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} md={2}>
+                                        <FormControl fullWidth variant="outlined">
+                                            <InputLabel id="priority-select-label">Prioridade</InputLabel>
+                                                <Select
+                                                labelId="priority-select-label"
+                                                value={priorityFilter}
+                                                onChange={(e) => setPriorityFilter(e.target.value)}
+                                                label="Prioridade"
+                                            >
+                                                <MenuItem value="">Todas</MenuItem>
+                                                <MenuItem value="Alta">Alta</MenuItem>
+                                                <MenuItem value="Média">Média</MenuItem>
+                                                <MenuItem value="Baixa">Baixa</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Grid>
+                                    <Grid item xs={12} md={2}>
+                                        <FormControl fullWidth variant="outlined">
+                                            <InputLabel id="category-select-label">Categoria</InputLabel>
+                                            <Select
+                                                labelId="category-select-label"
+                                                value={categoryFilter}
+                                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                                label="Categoria"
+                                            >
+                                                <MenuItem value="">Todas</MenuItem>
+                                                <MenuItem value="Capacidade">Capacidade</MenuItem>
+                                                <MenuItem value="Recursos">Recursos</MenuItem>
+                                                <MenuItem value="Planejamento">Planejamento</MenuItem>
+                                                <MenuItem value="Anomalias">Anomalias</MenuItem>
+                                                <MenuItem value="Fatores de Influência">Fatores de Influência</MenuItem>
+                                                <MenuItem value="Análise">Análise</MenuItem>
+                                                <MenuItem value="Estratégia">Estratégia</MenuItem>
+                                            </Select>
+                                        </FormControl>
+                                        </Grid>
+                                    <Grid item xs={12} md={2}>
+                                            <Button
+                                                fullWidth
+                                                variant="contained"
+                                                onClick={handleSearch}
+                                            disabled={loading}
+                                                sx={{ height: '56px' }}
+                                            >
+                                            {loading ? <CircularProgress size={24} /> : 'Buscar'}
+                                            </Button>
+                                        </Grid>
+                                    </Grid>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                </Grid>
 
                 {error && (
                     <Alert severity="error" sx={{ mb: 3 }}>
@@ -284,7 +303,7 @@ const RecommendationsPage = () => {
 
                 {/* Dashboard de resumo */}
                 {recommendations && recommendations.length > 0 && (
-                    <Grid container spacing={2} sx={{ mb: 5 }}>
+                    <Grid container spacing={2} sx={{ mb: 5, width: '100%', maxWidth: '98%', margin: '0 auto' }}>
                         <Grid item xs={12} md={4}>
                             <Paper 
                                 elevation={2} 
@@ -504,30 +523,32 @@ const RecommendationsPage = () => {
                 )}
                 
                 {/* Lista de Recomendações */}
-                <Paper 
-                    elevation={3} 
-                    sx={{ 
-                        borderRadius: 2,
-                        background: theme.palette.background.paper,
-                        boxShadow: theme.shadows[3],
-                        overflow: 'hidden',
-                        mt: recommendations && recommendations.length > 0 ? 0 : 4,
-                        position: 'relative',
-                        '&::before': {
-                            ...(recommendations && recommendations.length > 0 ? {
-                                content: '""',
-                                position: 'absolute',
-                                top: -15,
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                                width: '50px',
-                                height: '4px',
-                                backgroundColor: theme.palette.primary.main,
-                                borderRadius: '4px'
-                            } : {})
-                        }
-                    }}
-                >
+                <Grid container spacing={2} sx={{ width: '100%', maxWidth: '98%', margin: '0 auto' }}>
+                    <Grid item xs={12}>
+                        <Paper 
+                            elevation={3} 
+                            sx={{ 
+                                borderRadius: 2,
+                                background: theme.palette.background.paper,
+                                boxShadow: theme.shadows[3],
+                                overflow: 'hidden',
+                                mt: recommendations && recommendations.length > 0 ? 0 : 4,
+                                position: 'relative',
+                                '&::before': {
+                                    ...(recommendations && recommendations.length > 0 ? {
+                                        content: '""',
+                                        position: 'absolute',
+                                        top: -15,
+                                        left: '50%',
+                                        transform: 'translateX(-50%)',
+                                        width: '50px',
+                                        height: '4px',
+                                        backgroundColor: theme.palette.primary.main,
+                                        borderRadius: '4px'
+                                    } : {})
+                                }
+                            }}
+                        >
                     <Box sx={{ 
                         p: 2, 
                         display: 'flex', 
@@ -604,65 +625,59 @@ const RecommendationsPage = () => {
                                                     </ListItemIcon>
                                                     <ListItemText
                                                         primary={
-                                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                                                <Typography variant="subtitle1" sx={{ fontWeight: 'medium', flex: 1, minWidth: '300px' }}>
-                                                                    {recommendation.title}
-                                                                </Typography>
-                                                                <Box sx={{ display: 'flex', gap: 1, minWidth: '220px', justifyContent: 'flex-end' }}>
-                                                                    <Chip 
-                                                                        label={recommendation.priority}
-                                                                        color={getPriorityColor(recommendation.priority)}
-                                                                        size="small"
-                                                                        variant="outlined"
-                                                                        sx={{ fontWeight: 'bold', width: '80px' }}
-                                                                    />
-                                                                    <Chip
-                                                                        label={recommendation.category}
-                                                                        color={getCategoryColor(recommendation.category)}
-                                                                        size="small"
-                                                                        variant="outlined"
-                                                                        icon={getCategoryIcon(recommendation.category)}
-                                                                        sx={{ fontWeight: 'bold', minWidth: '140px' }}
-                                                                    />
-                                                                </Box>
-                                                            </Box>
-                                                        }
-                                                        secondary={
-                                                            <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                                                                <Grid item xs={12}>
-                                                                    <Typography variant="body2" color="text.primary" sx={{ mb: 1 }}>
-                                                                        {recommendation.description}
+                                                            <>
+                                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                                                    <Typography variant="subtitle1" sx={{ fontWeight: 'medium', flex: 1, minWidth: '300px' }}>
+                                                                        {recommendation.title}
                                                                     </Typography>
-                                                                </Grid>
-                                                                <Grid item xs={12} sm={6} md={3}>
+                                                                    <Box sx={{ display: 'flex', gap: 1, minWidth: '220px', justifyContent: 'flex-end' }}>
+                                                                        <Chip 
+                                                                            label={recommendation.priority}
+                                                                            color={getPriorityColor(recommendation.priority)}
+                                                                            size="small"
+                                                                            variant="outlined"
+                                                                            sx={{ fontWeight: 'bold', width: '80px' }}
+                                                                        />
+                                                                        <Chip
+                                                                            label={recommendation.category}
+                                                                            color={getCategoryColor(recommendation.category)}
+                                                                            size="small"
+                                                                            variant="outlined"
+                                                                            icon={getCategoryIcon(recommendation.category)}
+                                                                            sx={{ fontWeight: 'bold', minWidth: '140px' }}
+                                                                        />
+                                                                    </Box>
+                                                                </Box>
+                                                                {/* Texto da descrição */}
+                                                                <Typography variant="body2" color="text.primary" sx={{ mt: 1, mb: 1 }}>
+                                                                    {recommendation.description}
+                                                                </Typography>
+                                                                {/* Data e informações alinhadas abaixo do texto */}
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 6, mt: 1.5 }}>
                                                                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                                         <CalendarIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
                                                                         <Typography variant="body2" color="text.secondary">
                                                                             <b>Data:</b> {new Date(selectedDate).toLocaleDateString('pt-BR')}
                                                                         </Typography>
                                                                     </Box>
-                                                                </Grid>
-                                                                {recommendation.impactPercentage && (
-                                                                    <Grid item xs={12} sm={6} md={3}>
+                                                                    {recommendation.impactPercentage && (
                                                                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                                             <InfoIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
                                                                             <Typography variant="body2" color="text.secondary">
                                                                                 <b>Impacto:</b> {recommendation.impactPercentage.toFixed(1)}%
                                                                             </Typography>
                                                                         </Box>
-                                                                    </Grid>
-                                                                )}
-                                                                {recommendation.timeframe && (
-                                                                    <Grid item xs={12} sm={6} md={3}>
+                                                                    )}
+                                                                    {recommendation.timeframe && (
                                                                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                                             <TimelineIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
                                                                             <Typography variant="body2" color="text.secondary">
                                                                                 <b>Prazo:</b> {recommendation.timeframe}
                                                                             </Typography>
                                                                         </Box>
-                                                                    </Grid>
-                                                                )}
-                                                            </Grid>
+                                                                    )}
+                                                                </Box>
+                                                            </>
                                                         }
                                                     />
                                                 </ListItem>
@@ -683,6 +698,8 @@ const RecommendationsPage = () => {
                 )}
                     </CardContent>
                 </Paper>
+                    </Grid>
+                </Grid>
             </Box>
         </MainLayout>
     );

@@ -6,9 +6,7 @@ import PredictiveAnalysis from '../../components/PredictiveAnalysis';
 const PredictiveAnalysisPage = () => {
     return (
         <MainLayout>
-            <Box sx={{ py: 2 }}>
-                <PredictiveAnalysis />
-            </Box>
+            <PredictiveAnalysis />
         </MainLayout>
     );
 };

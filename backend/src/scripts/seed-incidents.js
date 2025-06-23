@@ -17,102 +17,72 @@ function createTestIncidents() {
       {
         incidente: 'Falha no sistema de login',
         categoria: 'SISTEMA',
-        grupoAtual: 'SUPORTE_TI',
         grupoDirecionado: 'DEV',
         dataCriacao: '2025-04-01T10:30:00.000Z',
-        prioridade: 'ALTA',
-        problema: 'Usuários não conseguem fazer login no sistema',
-        analise: 'Possível problema na autenticação'
+        prioridade: 'ALTA'
       },
       {
         incidente: 'Lentidão no processamento de pagamentos',
         categoria: 'FINANCEIRO',
-        grupoAtual: 'FINANCEIRO',
         grupoDirecionado: 'INFRA',
         dataCriacao: '2025-04-02T14:15:00.000Z',
-        prioridade: 'MEDIA',
-        problema: 'Pagamentos demorando mais de 30 segundos para processar',
-        analise: 'Alta demanda ou problema na infraestrutura'
+        prioridade: 'MEDIA'
       },
       {
         incidente: 'Erro no relatório mensal',
         categoria: 'RELATORIO',
-        grupoAtual: 'GERENCIA',
         grupoDirecionado: 'SUPORTE_N2',
         dataCriacao: '2025-04-03T09:45:00.000Z',
-        prioridade: 'BAIXA',
-        problema: 'Relatório mensal apresentando valores incorretos',
-        analise: 'Possível erro na fórmula de cálculo'
+        prioridade: 'BAIXA'
       },
       {
         incidente: 'Sistema fora do ar',
         categoria: 'SISTEMA',
-        grupoAtual: 'SUPORTE_TI',
         grupoDirecionado: 'INFRA',
         dataCriacao: '2025-04-05T08:00:00.000Z',
-        prioridade: 'CRITICA',
-        problema: 'Sistema completamente indisponível',
-        analise: 'Servidores não respondem'
+        prioridade: 'CRITICA'
       },
       {
         incidente: 'Dados inconsistentes',
         categoria: 'DADOS',
-        grupoAtual: 'SUPORTE_N1',
         grupoDirecionado: 'DEV',
         dataCriacao: '2025-04-08T16:20:00.000Z',
-        prioridade: 'ALTA',
-        problema: 'Dados de clientes apresentando inconsistências',
-        analise: 'Possível problema na sincronização'
+        prioridade: 'ALTA'
       },
       {
         incidente: 'Interface lenta',
         categoria: 'FRONTEND',
-        grupoAtual: 'SUPORTE_N1',
         grupoDirecionado: 'DEV',
         dataCriacao: '2025-04-10T11:05:00.000Z',
-        prioridade: 'MEDIA',
-        problema: 'Interface apresentando lentidão em todas as operações',
-        analise: 'Possível excesso de requisições ou problema de memória'
+        prioridade: 'MEDIA'
       },
       {
         incidente: 'Erro de autenticação',
         categoria: 'SEGURANCA',
-        grupoAtual: 'SUPORTE_N2',
         grupoDirecionado: 'SEGURANCA',
         dataCriacao: '2025-04-12T13:40:00.000Z',
-        prioridade: 'ALTA',
-        problema: 'Tentativas suspeitas de acesso detectadas',
-        analise: 'Possível ataque de força bruta'
+        prioridade: 'ALTA'
       },
       {
         incidente: 'Integração falhou',
         categoria: 'INTEGRACAO',
-        grupoAtual: 'SUPORTE_TI',
         grupoDirecionado: 'DEV',
         dataCriacao: '2025-04-15T09:30:00.000Z',
-        prioridade: 'ALTA',
-        problema: 'Integração com sistema externo falhou',
-        analise: 'API externa indisponível'
+        prioridade: 'ALTA'
       },
       {
         incidente: 'Dados duplicados',
         categoria: 'DADOS',
-        grupoAtual: 'SUPORTE_N2',
         grupoDirecionado: 'DADOS',
         dataCriacao: '2025-04-17T14:00:00.000Z',
-        prioridade: 'MEDIA',
-        problema: 'Registros duplicados no banco de dados',
-        analise: 'Problema de sincronização entre servidores'
+        prioridade: 'MEDIA'
       },
       {
         incidente: 'Erro de processamento',
         categoria: 'BACKEND',
-        grupoAtual: 'SUPORTE_TI',
         grupoDirecionado: 'DEV',
         dataCriacao: '2025-04-18T10:15:00.000Z',
-        prioridade: 'ALTA',
-        problema: 'Erro ao processar transações',
-        analise: 'Exceção não tratada no código'
+        prioridade: 'ALTA'
       }
     ];
     
@@ -131,15 +101,10 @@ function createTestIncidents() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             INCIDENTE TEXT NOT NULL,
             CATEGORIA TEXT NOT NULL,
-            GRUPO_ATUAL TEXT NOT NULL,
             GRUPO_DIRECIONADO TEXT,
             DATA_CRIACAO DATETIME NOT NULL,
             PRIORIDADE TEXT NOT NULL,
-            PROBLEMA TEXT,
-            SOLUCAO TEXT,
             DATA_ENCERRAMENTO DATETIME,
-            USU_TRATAMENTO TEXT,
-            ANALISE TEXT,
             ACAO TEXT CHECK(ACAO IN ('CANCELADO', 'RESOLVIDO', 'DIRECIONADO'))
           )
         `, insertIncidents);
@@ -159,8 +124,8 @@ function createTestIncidents() {
       // Preparar a declaração de inserção
       const stmt = db.prepare(`
         INSERT INTO incidents 
-        (INCIDENTE, CATEGORIA, GRUPO_ATUAL, GRUPO_DIRECIONADO, DATA_CRIACAO, PRIORIDADE, PROBLEMA, ANALISE)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (INCIDENTE, CATEGORIA, GRUPO_DIRECIONADO, DATA_CRIACAO, PRIORIDADE)
+        VALUES (?, ?, ?, ?, ?)
       `);
       
       let count = 0;
@@ -170,12 +135,9 @@ function createTestIncidents() {
         stmt.run(
           incidente.incidente,
           incidente.categoria,
-          incidente.grupoAtual,
           incidente.grupoDirecionado,
           incidente.dataCriacao,
           incidente.prioridade,
-          incidente.problema,
-          incidente.analise,
           function(err) {
             if (err) {
               console.error(`Erro ao inserir incidente '${incidente.incidente}':`, err.message);
