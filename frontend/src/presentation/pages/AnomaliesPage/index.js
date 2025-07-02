@@ -45,6 +45,8 @@ import MainLayout from '../../layouts/MainLayout';
 import useAnomalies from '../../../application/hooks/useAnomalies';
 
 const AnomaliesPage = () => {
+    console.log('🔍 [DEBUG ANOMALIES] AnomaliesPage renderizada');
+    
     const theme = useTheme();
     const {
         loading,
@@ -53,13 +55,16 @@ const AnomaliesPage = () => {
         loadAnomalies
     } = useAnomalies();
 
-    const [productId, setProductId] = useState('ALL');
+    const [groupId, setGroupId] = useState('ALL');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [severityFilter, setSeverityFilter] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
+    const [shouldLoadData, setShouldLoadData] = useState(false);
 
     useEffect(() => {
+        console.log('🔍 [DEBUG ANOMALIES] useEffect inicial executado');
+        
         // Obter a data atual e a data de 30 dias atrás para valores padrão
         const hoje = new Date();
         const dataInicial = new Date();
@@ -75,23 +80,35 @@ const AnomaliesPage = () => {
         const dataInicialFormatada = formatarData(dataInicial);
         const dataFinalFormatada = formatarData(hoje);
         
+        console.log('🔍 [DEBUG ANOMALIES] Datas calculadas:', { dataInicialFormatada, dataFinalFormatada });
+        
         // Atualizar os estados com as datas padrão
         setStartDate(dataInicialFormatada);
         setEndDate(dataFinalFormatada);
-        
-        // Carregar anomalias na inicialização com parâmetros corretos
-        loadAnomalies({
-            productId: 'ALL',
-            startDate: dataInicialFormatada,
-            endDate: dataFinalFormatada
-        });
+        setShouldLoadData(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+    
+    // useEffect separado para carregar dados quando shouldLoadData for true
+    useEffect(() => {
+        if (shouldLoadData && startDate && endDate) {
+            console.log('🔍 [DEBUG ANOMALIES] Carregando dados iniciais...');
+            loadAnomalies({
+                groupId: 'ALL',
+                startDate: startDate,
+                endDate: endDate
+            });
+            setShouldLoadData(false);
+        }
+    }, [shouldLoadData, startDate, endDate, loadAnomalies]);
 
     const handleSearch = () => {
+        console.log('🔍 [DEBUG ANOMALIES] handleSearch chamado');
+        console.log('🔍 [DEBUG ANOMALIES] Parâmetros de busca:', { groupId, startDate, endDate, severityFilter });
+        
         // Usar o hook de anomalias para buscar os dados
         loadAnomalies({
-            productId: productId || 'ALL',
+            groupId: groupId || 'ALL',
             startDate: startDate || null,
             endDate: endDate || null,
             severity: severityFilter || null
@@ -100,15 +117,15 @@ const AnomaliesPage = () => {
 
     const handleRefresh = () => {
         loadAnomalies({
-            productId: productId || 'ALL',
+            groupId: groupId || 'ALL',
             startDate: startDate || null,
             endDate: endDate || null,
             severity: severityFilter || null
         });
     };
 
-    const handleProductIdChange = (value) => {
-        setProductId(value);
+    const handleGroupIdChange = (value) => {
+        setGroupId(value);
     };
 
     const getSeverityColor = (severity) => {

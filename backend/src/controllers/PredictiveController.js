@@ -154,8 +154,8 @@ class PredictiveController {
 
     async getInfluenceFactors(req, res) {
         try {
-            const { productId, startDate, endDate } = req.query;
-            const result = await this.influenceFactorsService.analyzeFactors(productId, { startDate, endDate });
+            const { groupId, startDate, endDate } = req.query;
+            const result = await this.influenceFactorsService.analyzeFactors(groupId, { startDate, endDate });
             res.json(result.data);
         } catch (error) {
             logger.error('[PredictiveController] Erro:', error);
@@ -166,7 +166,7 @@ class PredictiveController {
     async getPeriodComparison(req, res) {
         try {
             const { 
-                productId, 
+                groupId, 
                 currentPeriodStart, 
                 currentPeriodEnd, 
                 comparisonType = 'year_over_year',
@@ -174,9 +174,9 @@ class PredictiveController {
                 customPeriodEnd 
             } = req.query;
 
-            // Busca dados do período atual (sumarizado por mês)
-            const currentPeriod = await this.incidentRepository.getMonthlyConsolidatedIncidents(
-                productId,
+            // Busca dados do período atual (sumarizado por mês) para grupo
+            const currentPeriod = await this.incidentRepository.getMonthlyConsolidatedIncidentsByGroup(
+                groupId,
                 currentPeriodStart,
                 currentPeriodEnd
             );
@@ -193,9 +193,9 @@ class PredictiveController {
                 comparisonEnd = new Date(customPeriodEnd);
             }
 
-            // Busca dados do período de comparação (sumarizado por mês)
-            const previousPeriod = await this.incidentRepository.getMonthlyConsolidatedIncidents(
-                productId,
+            // Busca dados do período de comparação (sumarizado por mês) para grupo
+            const previousPeriod = await this.incidentRepository.getMonthlyConsolidatedIncidentsByGroup(
+                groupId,
                 comparisonStart.toISOString().split('T')[0],
                 comparisonEnd.toISOString().split('T')[0]
             );
@@ -209,32 +209,32 @@ class PredictiveController {
 
     async getRecommendations(req, res) {
         try {
-            const { productId, date, limit = 3, category = null } = req.query;
+            const { groupId, date, limit = 3, category = null } = req.query;
 
-            if (!productId || !date) {
+            if (!groupId || !date) {
                 return res.status(400).json({
                     success: false,
-                    error: 'ProductId e date são parâmetros obrigatórios'
+                    error: 'GroupId e date são parâmetros obrigatórios'
                 });
             }
 
             // Usar o serviço de recomendações para análise real baseada em dados
-            const result = await this.recommendationService.generateRecommendations(
-                productId,
+            const result = await this.recommendationService.generateRecommendationsForGroup(
+                groupId,
                 date,
                 parseInt(limit),
                 category
             );
             
-            // Se a requisição for para todos os produtos, adicionar flag para identificação
-            if (productId === "ALL") {
+            // Se a requisição for para todos os grupos, adicionar flag para identificação
+            if (groupId === "ALL") {
                 result.data.isAggregateRecommendation = true;
             }
             
             // Adicionar metadados úteis na resposta
             result.data.metadata = {
                 generatedAt: new Date().toISOString(),
-                requestParams: { productId, date, limit, category }
+                requestParams: { groupId, date, limit, category }
             };
             
             res.json(result);

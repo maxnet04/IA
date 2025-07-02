@@ -7,6 +7,7 @@ import PredictiveAnalysisPage from '../presentation/pages/PredictiveAnalysisPage
 import AnomaliesPage from '../presentation/pages/AnomaliesPage';
 import RecommendationsPage from '../presentation/pages/RecommendationsPage';
 import TimelineAnalysisPage from '../presentation/pages/TimelineAnalysisPage';
+import GroupAnalysisPage from '../presentation/pages/GroupAnalysisPage';
 import NotFoundPage from '../presentation/pages/NotFoundPage';
 import useAuth from '../application/hooks/useAuth';
 
@@ -61,6 +62,12 @@ const AppRoutes = () => {
             <Route path="/recommendations" element={
                 <PrivateRoute>
                     <RecommendationsPage />
+                </PrivateRoute>
+            } />
+            
+            <Route path="/groups" element={
+                <PrivateRoute>
+                    <GroupAnalysisPage />
                 </PrivateRoute>
             } />
             

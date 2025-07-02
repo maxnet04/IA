@@ -14,16 +14,54 @@ import {
     ListItemText,
     ListItemIcon,
     ListItemSecondaryAction,
-    Divider
+    Divider,
+    ListItemAvatar,
+    Avatar,
+    Chip
 } from '@mui/material';
 import {
     Notifications as NotificationsIcon,
     Warning as WarningIcon,
-    CheckCircle as CheckCircleIcon
+    CheckCircle as CheckCircleIcon,
+    InfoRounded as InfoIcon
 } from '@mui/icons-material';
 import useNotifications from '../../../application/hooks/useNotifications';
 
-const NotificationCenter = ({ productId }) => {
+// Mapeamento preciso de ícones e cores para replicar a imagem
+const notificationStyles = {
+    anomaly: { icon: <WarningIcon />, color: '#f57c00' }, // Laranja para anomalia
+    recommendation: { icon: <InfoIcon />, color: '#0288d1' }, // Azul para recomendação
+    prediction_warning: { icon: <InfoIcon />, color: '#fbc02d' }, // Amarelo para previsão (fallback)
+    read: { icon: <CheckCircleIcon style={{ color: '#fff' }}/>, color: '#bdbdbd' }, // Cinza para lida
+    default: { icon: <InfoIcon />, color: '#546e7a' } // Padrão
+};
+
+function getNotificationAppearance(notification) {
+    if (notification.read_at) { // Checa explicitamente por read_at
+        return notificationStyles.read;
+    }
+    return notificationStyles[notification.type] || notificationStyles.default;
+}
+
+function timeAgo(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffSeconds = Math.floor((now - date) / 1000);
+
+    if (diffSeconds < 60) return 'agora';
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `há ${diffMinutes} min`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `há ${diffHours}h`;
+
+    return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'short',
+    }).replace('.', '') + ` às ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+const NotificationCenter = ({ grupoDirecionado }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const {
         notifications,
@@ -32,7 +70,7 @@ const NotificationCenter = ({ productId }) => {
         unreadCount,
         markAsRead,
         markAllAsRead
-    } = useNotifications(productId);
+    } = useNotifications(grupoDirecionado);
 
     const handleClick = (event) => {
         setAnchorEl(event.currentTarget);
@@ -66,7 +104,19 @@ const NotificationCenter = ({ productId }) => {
         <>
             <Tooltip title="Notificações">
                 <IconButton color="inherit" onClick={handleClick}>
-                    <Badge badgeContent={unreadCount} color="error">
+                    <Badge
+                        badgeContent={unreadCount}
+                        color="error"
+                        sx={{
+                            '& .MuiBadge-badge': {
+                                right: 5,
+                                top: 5,
+                                border: `2px solid #fff`,
+                                padding: '0 4px',
+                                fontSize: '0.7rem'
+                            }
+                        }}
+                    >
                         <NotificationsIcon />
                     </Badge>
                 </IconButton>
@@ -109,50 +159,65 @@ const NotificationCenter = ({ productId }) => {
                     </Box>
                 ) : (
                     <List sx={{ width: '100%', p: 0 }}>
-                        {notifications.map((notification) => (
-                            <ListItem
-                                key={notification.id}
-                                alignItems="flex-start"
-                                sx={{
-                                    bgcolor: notification.read ? 'transparent' : 'action.hover',
-                                    '&:hover': { bgcolor: 'action.selected' }
-                                }}
-                            >
-                                <ListItemIcon>
-                                    <WarningIcon color="error" />
-                                </ListItemIcon>
-                                <ListItemText
-                                    primary={notification.title}
-                                    secondary={
-                                        <>
-                                            <Typography
-                                                component="span"
-                                                variant="body2"
-                                                color="text.primary"
-                                            >
-                                                {notification.description}
-                                            </Typography>
-                                            <Typography variant="caption" display="block">
-                                                {formatDate(notification.date)}
-                                            </Typography>
-                                        </>
-                                    }
-                                />
-                                {!notification.read && (
-                                    <ListItemSecondaryAction>
-                                        <Tooltip title="Marcar como lida">
-                                            <IconButton
-                                                edge="end"
-                                                size="small"
-                                                onClick={() => handleMarkAsRead(notification.id)}
-                                            >
-                                                <CheckCircleIcon fontSize="small" />
-                                            </IconButton>
-                                        </Tooltip>
-                                    </ListItemSecondaryAction>
-                                )}
-                            </ListItem>
-                        ))}
+                        {notifications.map((notification) => {
+                            const { icon, color } = getNotificationAppearance(notification);
+                            const isRead = notification.read_at;
+                            return (
+                                <ListItem
+                                    key={notification.id}
+                                    alignItems="flex-start"
+                                    sx={{
+                                        bgcolor: notification.read ? 'transparent' : 'action.hover',
+                                        '&:hover': { bgcolor: 'action.selected' }
+                                    }}
+                                >
+                                    <ListItemAvatar>
+                                        <Avatar sx={{ bgcolor: color }}>
+                                            {icon}
+                                        </Avatar>
+                                    </ListItemAvatar>
+                                    <ListItemText
+                                        primary={
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Typography variant="body1" sx={{ fontWeight: isRead ? 400 : 600, color: 'text.primary', pr: 1 }}>
+                                                    {notification.title || notification.type.charAt(0).toUpperCase() + notification.type.slice(1).replace(/_/g, ' ')}
+                                                </Typography>
+                                                {!isRead &&
+                                                    <Chip label="Nova" size="small" sx={{ height: 22, borderRadius: '6px', bgcolor: '#0288d1', color: '#fff' }} />
+                                                }
+                                            </Box>
+                                        }
+                                        secondary={
+                                            <>
+                                                <Typography
+                                                    component="span"
+                                                    variant="body2"
+                                                    color="text.primary"
+                                                >
+                                                    {notification.description}
+                                                </Typography>
+                                                <Typography variant="caption" display="block">
+                                                    {formatDate(notification.date)}
+                                                </Typography>
+                                            </>
+                                        }
+                                    />
+                                    {!notification.read && (
+                                        <ListItemSecondaryAction>
+                                            <Tooltip title="Marcar como lida">
+                                                <IconButton
+                                                    edge="end"
+                                                    size="small"
+                                                    onClick={() => handleMarkAsRead(notification.id)}
+                                                >
+                                                    <CheckCircleIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </ListItemSecondaryAction>
+                                    )}
+                                </ListItem>
+                            );
+                        })}
                     </List>
                 )}
             </Menu>

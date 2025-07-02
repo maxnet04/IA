@@ -403,6 +403,103 @@ class IncidentRepository {
       });
     });
   }
+
+  async getMonthlyConsolidatedIncidentsByGroup(groupId, startDate, endDate, category = null) {
+    const db = await getConnection();
+    return new Promise((resolve, reject) => {
+      let query;
+      const params = [];
+      const categoryFilter = category ? 'AND CATEGORIA = ?' : '';
+      if (groupId === 'ALL') {
+        query = `
+          SELECT 
+            strftime('%Y-%m', DATA_CRIACAO) as incident_month,
+            'ALL' as group_id,
+            SUM(volume) as volume,
+            COUNT(*) as incident_count,
+            GROUP_CONCAT(DISTINCT CATEGORIA) as CATEGORIA,
+            GROUP_CONCAT(DISTINCT GRUPO_DIRECIONADO) as GRUPO_DIRECIONADO
+          FROM incidents 
+          WHERE DATA_CRIACAO BETWEEN ? AND ? ${categoryFilter}
+          GROUP BY incident_month
+          ORDER BY incident_month ASC`;
+        params.push(startDate, endDate);
+        if (category) params.push(category);
+      } else {
+        query = `
+          SELECT 
+            strftime('%Y-%m', DATA_CRIACAO) as incident_month,
+            ? as group_id,
+            SUM(volume) as volume,
+            COUNT(*) as incident_count,
+            GROUP_CONCAT(DISTINCT CATEGORIA) as CATEGORIA,
+            GROUP_CONCAT(DISTINCT GRUPO_DIRECIONADO) as GRUPO_DIRECIONADO
+          FROM incidents 
+          WHERE GRUPO_DIRECIONADO = ? AND DATA_CRIACAO BETWEEN ? AND ? ${categoryFilter}
+          GROUP BY incident_month
+          ORDER BY incident_month ASC`;
+        params.push(groupId, groupId, startDate, endDate);
+        if (category) params.push(category);
+      }
+      db.all(query, params, (err, rows) => {
+        db.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
+      });
+    });
+  }
+
+  async getIncidentsByDateRangeAndGroup(groupId, startDate, endDate) {
+    const db = await getConnection();
+    return new Promise((resolve, reject) => {
+      let query;
+      const params = [];
+
+      if (groupId === 'ALL') {
+        query = `
+          SELECT 
+            DATE(DATA_CRIACAO) as incident_date,
+            GRUPO_DIRECIONADO,
+            CATEGORIA,
+            volume,
+            is_anomaly,
+            DATA_CRIACAO
+          FROM incidents 
+          WHERE DATA_CRIACAO BETWEEN ? AND ?
+          ORDER BY DATA_CRIACAO ASC
+        `;
+        params.push(startDate, endDate);
+      } else {
+        query = `
+          SELECT 
+            DATE(DATA_CRIACAO) as incident_date,
+            GRUPO_DIRECIONADO,
+            CATEGORIA,
+            volume,
+            is_anomaly,
+            DATA_CRIACAO
+          FROM incidents 
+          WHERE DATA_CRIACAO BETWEEN ? AND ? 
+            AND GRUPO_DIRECIONADO = ?
+          ORDER BY DATA_CRIACAO ASC
+        `;
+        params.push(startDate, endDate, groupId);
+      }
+
+      db.all(query, params, (err, rows) => {
+        db.close();
+        if (err) {
+          console.error('Erro ao buscar incidentes por grupo e período:', err);
+          reject(err);
+        } else {
+          resolve(rows || []);
+        }
+      });
+    });
+  }
 }
 
 module.exports = { IncidentRepository }; 

@@ -90,7 +90,8 @@ const usePredictiveAnalysis = () => {
             // Carrega dados relacionados com filtros
             const [anomaliesResult, recommendationsResult, metricsResult] = await Promise.all([
                 predictiveService.detectAnomalies(currentProductId, filters.startDate || date, filters.endDate || date),
-                predictiveService.getRecommendations(currentProductId),
+                // Não carregar recomendações aqui - será carregado pelo hook useRecommendations específico
+                Promise.resolve({ data: { recommendations: [] } }),
                 predictiveService.getDetailedMetrics(currentProductId, filters.startDate || date, filters.endDate || date)
             ]);
 
@@ -148,13 +149,13 @@ const usePredictiveAnalysis = () => {
         setProductId('');
     }, []);
 
-    const loadVolumeAnalysis = useCallback(async (productId, targetDate, options = {}) => {
+    const loadVolumeAnalysis = useCallback(async (groupId, targetDate, options = {}) => {
         setLoading(true);
         setError(null);
 
         try {
-            const result = await predictiveService.getVolumeAnalysis(
-                productId,
+            const result = await predictiveService.getVolumeAnalysisByGroup(
+                groupId,
                 targetDate,
                 options
             );
@@ -174,13 +175,13 @@ const usePredictiveAnalysis = () => {
     }, []);
 
     /**
-     * Carrega os fatores de influência para um produto e período
+     * Carrega os fatores de influência para um grupo e período
      */
-    const loadInfluenceFactors = useCallback(async (productId, startDate, endDate) => {
+    const loadInfluenceFactors = useCallback(async (groupId, startDate, endDate) => {
         setLoadingInfluenceFactors(true);
         setErrorInfluenceFactors(null);
         try {
-            const result = await predictiveService.getInfluenceFactors(productId, startDate, endDate);
+            const result = await predictiveService.getInfluenceFactors(groupId, startDate, endDate);
             if (!result.success) {
                 throw new Error(result.error || 'Erro ao carregar fatores de influência');
             }

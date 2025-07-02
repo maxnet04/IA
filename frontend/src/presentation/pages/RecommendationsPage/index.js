@@ -39,25 +39,30 @@ import {
 } from '@mui/icons-material';
 import MainLayout from '../../layouts/MainLayout';
 import useRecommendations from '../../../application/hooks/useRecommendations';
+import { useGroups } from '../../../application/hooks/useGroups';
+import GroupSelector from '../../components/GroupSelector';
 
 const RecommendationsPage = () => {
     const theme = useTheme();
     
+    // Hook para grupos
+    const { groups, loading: groupsLoading, error: groupsError } = useGroups();
+    
     // Hook para recomendações
-    const {
-        recommendations,
-        loading,
-        error,
+        const { 
+        recommendations, 
+        loading, 
+        error, 
         category,
         limit,
         filterByCategory,
         changeLimit,
-        changeProduct,
+        changeGroup,
         changeDate,
         refreshRecommendations
     } = useRecommendations();
 
-    const [productId, setProductId] = useState('ALL');
+    const [groupId, setGroupId] = useState('ALL');
     const [selectedDate, setSelectedDate] = useState('');
     const [priorityFilter, setPriorityFilter] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
@@ -79,7 +84,7 @@ const RecommendationsPage = () => {
         setSelectedDate(dataAtualFormatada);
         
         // Carregar recomendações na inicialização com parâmetros corretos
-        changeProduct('ALL');
+        changeGroup('ALL');
         changeDate(dataAtualFormatada);
         changeLimit(10);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,7 +92,7 @@ const RecommendationsPage = () => {
 
     const handleSearch = () => {
         // Atualizar parâmetros e buscar recomendações
-        changeProduct(productId || 'ALL');
+        changeGroup(groupId || 'ALL');
         changeDate(selectedDate);
         if (categoryFilter) {
             filterByCategory(categoryFilter);
@@ -100,8 +105,8 @@ const RecommendationsPage = () => {
         refreshRecommendations();
     };
 
-    const handleProductIdChange = (value) => {
-        setProductId(value);
+    const handleGroupIdChange = (selection) => {
+        setGroupId(selection.value);
     };
 
     // Função que retorna a cor baseada na prioridade
@@ -223,12 +228,14 @@ const RecommendationsPage = () => {
                             <CardContent>
                                 <Grid container spacing={2} alignItems="center" sx={{ justifyContent: 'center' }}>
                                     <Grid item xs={12} md={3}>
-                                        <TextField
-                                            fullWidth
-                                            label="ID do Produto"
-                                            value={productId}
-                                            onChange={(e) => handleProductIdChange(e.target.value)}
+                                        <GroupSelector
+                                            value={groupId}
+                                            onChange={handleGroupIdChange}
+                                            label="Selecionar Grupo"
                                             variant="outlined"
+                                            groups={groups}
+                                            loading={groupsLoading}
+                                            error={groupsError}
                                         />
                                     </Grid>
                                     <Grid item xs={12} md={3}>

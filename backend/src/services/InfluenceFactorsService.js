@@ -5,10 +5,10 @@ class InfluenceFactorsService {
     this.incidentRepo = new IncidentRepository();
   }
 
-  async analyzeFactors(productId, period) {
+  async analyzeFactors(groupId, period) {
     try {
-      const incidents = await this.incidentRepo.getIncidentsByDateRange(
-        productId,
+      const incidents = await this.incidentRepo.getIncidentsByDateRangeAndGroup(
+        groupId,
         period.startDate,
         period.endDate
       );

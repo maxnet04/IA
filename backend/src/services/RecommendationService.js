@@ -59,6 +59,54 @@ class RecommendationService {
     }
   }
 
+  async generateRecommendationsForGroup(groupId, date, limit = 3, category = null) {
+    try {
+      // Coleta dados para análise de grupo
+      const analysisData = await this.collectAnalysisDataForGroup(groupId, date);
+      
+      // Gera recomendações baseadas nos dados
+      const recommendations = await this.analyzeAndGenerateGroupRecommendations(analysisData);
+      
+      // Verifica se é uma consulta para todos os grupos e adiciona recomendações específicas
+      const isAllGroups = groupId === 'ALL';
+      if (isAllGroups) {
+        // Gera recomendações específicas para análise multi-grupo com base nos dados
+        const multiGroupRecommendations = await this.generateMultiGroupRecommendations(analysisData);
+        recommendations.push(...multiGroupRecommendations);
+      }
+      
+      // Filtra por categoria se especificada
+      let filteredRecommendations = recommendations;
+      if (category) {
+        filteredRecommendations = recommendations.filter(rec => 
+          rec.category.toLowerCase() === category.toLowerCase()
+        );
+      }
+      
+      // Prioriza e limita as recomendações
+      const prioritizedRecommendations = this.prioritizeRecommendations(filteredRecommendations)
+        .slice(0, limit);
+
+      // Adiciona evidências para cada recomendação
+      const recommendationsWithEvidence = await Promise.all(
+        prioritizedRecommendations.map(async rec => ({
+          ...rec,
+          supportingEvidence: await this.findEvidenceForRecommendation(rec, analysisData)
+        }))
+      );
+
+      return {
+        success: true,
+        data: {
+          recommendations: recommendationsWithEvidence
+        }
+      };
+    } catch (error) {
+      console.error('Erro ao gerar recomendações para grupo:', error);
+      throw new Error('Falha ao gerar recomendações para grupo');
+    }
+  }
+
   async collectAnalysisData(productId, date) {
     const baseDate = new Date(date);
     const threeMonthsAgo = new Date(baseDate);
@@ -88,6 +136,30 @@ class RecommendationService {
     };
   }
 
+  async collectAnalysisDataForGroup(groupId, date) {
+    const baseDate = new Date(date);
+    const threeMonthsAgo = new Date(baseDate);
+    threeMonthsAgo.setMonth(baseDate.getMonth() - 3);
+
+    // Coleta dados em paralelo usando métodos já adaptados para grupos
+    const [
+      historicalIncidents,
+      factors
+    ] = await Promise.all([
+      this.incidentRepo.getIncidentsByDateRangeAndGroup(groupId, threeMonthsAgo.toISOString(), date),
+      this.influenceFactorsService.analyzeFactors(groupId, {
+        startDate: threeMonthsAgo.toISOString(),
+        endDate: date
+      })
+    ]);
+
+    return {
+      historicalIncidents,
+      factors: factors.data,
+      groupId
+    };
+  }
+
   async analyzeAndGenerateRecommendations(analysisData) {
     const recommendations = [];
 
@@ -96,6 +168,21 @@ class RecommendationService {
 
     // Recomendações baseadas em sazonalidade
     this.generateSeasonalityRecommendations(analysisData, recommendations);
+
+    // Recomendações baseadas em fatores de influência
+    this.generateFactorBasedRecommendations(analysisData, recommendations);
+
+    // Recomendações baseadas em anomalias
+    this.generateAnomalyRecommendations(analysisData, recommendations);
+
+    return recommendations;
+  }
+
+  async analyzeAndGenerateGroupRecommendations(analysisData) {
+    const recommendations = [];
+
+    // Recomendações baseadas em dados históricos do grupo
+    this.generateGroupBasedRecommendations(analysisData, recommendations);
 
     // Recomendações baseadas em fatores de influência
     this.generateFactorBasedRecommendations(analysisData, recommendations);
@@ -299,6 +386,50 @@ class RecommendationService {
         priority: 'Baixa',
         category: 'Anomalias',
         impactPercentage: 5.0
+      });
+    }
+  }
+
+  generateGroupBasedRecommendations(analysisData, recommendations) {
+    const { historicalIncidents, groupId } = analysisData;
+    
+    if (!historicalIncidents || historicalIncidents.length === 0) {
+      recommendations.push({
+        title: 'Coleta de Dados Inicial',
+        description: `Estabeleça um sistema de monitoramento para o grupo ${groupId} para coletar dados históricos.`,
+        priority: 'Média',
+        category: 'Análise',
+        impactPercentage: 8.0
+      });
+      return;
+    }
+
+    // Analisa tendência de volume por grupo
+    const volumeTrend = this.calculateGroupVolumeTrend(historicalIncidents);
+    
+    if (volumeTrend > 0.15) {
+      recommendations.push({
+        title: 'Capacidade do Grupo',
+        description: `Aumente a capacidade do grupo ${groupId} em ${Math.round(volumeTrend * 100)}% devido ao crescimento identificado.`,
+        priority: 'Alta',
+        category: 'Capacidade',
+        impactPercentage: volumeTrend * 100
+      });
+    }
+
+    // Analisa distribuição de categorias
+    const categoryDistribution = this.analyzeCategoryDistribution(historicalIncidents);
+    const dominantCategory = Object.keys(categoryDistribution).reduce((a, b) => 
+      categoryDistribution[a] > categoryDistribution[b] ? a : b
+    );
+
+    if (categoryDistribution[dominantCategory] > 0.6) {
+      recommendations.push({
+        title: 'Especialização do Grupo',
+        description: `Considere especializar o grupo ${groupId} em ${dominantCategory}, que representa ${Math.round(categoryDistribution[dominantCategory] * 100)}% dos incidentes.`,
+        priority: 'Média',
+        category: 'Estratégia',
+        impactPercentage: categoryDistribution[dominantCategory] * 80
       });
     }
   }
@@ -651,6 +782,95 @@ class RecommendationService {
       console.error('Erro ao calcular volatilidade:', error);
       return 0.1; // Valor padrão em caso de erro
     }
+  }
+
+  calculateGroupVolumeTrend(incidents) {
+    if (incidents.length < 2) return 0;
+    
+    const sortedIncidents = incidents.sort((a, b) => new Date(a.DATA_CRIACAO) - new Date(b.DATA_CRIACAO));
+    const firstHalf = sortedIncidents.slice(0, Math.floor(sortedIncidents.length / 2));
+    const secondHalf = sortedIncidents.slice(Math.floor(sortedIncidents.length / 2));
+    
+    const firstHalfAvg = firstHalf.reduce((sum, inc) => sum + (inc.volume || 1), 0) / firstHalf.length;
+    const secondHalfAvg = secondHalf.reduce((sum, inc) => sum + (inc.volume || 1), 0) / secondHalf.length;
+    
+    return firstHalfAvg > 0 ? (secondHalfAvg - firstHalfAvg) / firstHalfAvg : 0;
+  }
+
+  analyzeCategoryDistribution(incidents) {
+    const distribution = {};
+    const total = incidents.length;
+    
+    incidents.forEach(incident => {
+      const category = incident.CATEGORIA || 'SEM_CATEGORIA';
+      distribution[category] = (distribution[category] || 0) + 1;
+    });
+    
+    // Converte para percentuais
+    Object.keys(distribution).forEach(category => {
+      distribution[category] = distribution[category] / total;
+    });
+    
+    return distribution;
+  }
+
+  async generateMultiGroupRecommendations(analysisData) {
+    const recommendations = [];
+    const { historicalIncidents } = analysisData;
+
+    if (!historicalIncidents || historicalIncidents.length === 0) {
+      recommendations.push({
+        title: 'Estruturação de Grupos',
+        description: 'Implemente uma estrutura de grupos organizada para melhor distribuição de trabalho.',
+        priority: 'Alta',
+        category: 'Estratégia',
+        impactPercentage: 12.0
+      });
+      return recommendations;
+    }
+
+    // Analisa distribuição entre grupos
+    const groupDistribution = this.analyzeGroupDistribution(historicalIncidents);
+    const totalGroups = Object.keys(groupDistribution).length;
+
+    if (totalGroups > 1) {
+      recommendations.push({
+        title: 'Balanceamento entre Grupos',
+        description: `Analise a distribuição de carga entre os ${totalGroups} grupos para otimizar eficiência.`,
+        priority: 'Média',
+        category: 'Recursos',
+        impactPercentage: 15.0
+      });
+
+      // Identifica grupos sobrecarregados
+      const avgVolume = Object.values(groupDistribution).reduce((a, b) => a + b, 0) / totalGroups;
+      const overloadedGroups = Object.keys(groupDistribution).filter(
+        group => groupDistribution[group] > avgVolume * 1.5
+      );
+
+      if (overloadedGroups.length > 0) {
+        recommendations.push({
+          title: 'Redistribuição de Carga',
+          description: `Grupos sobrecarregados identificados: ${overloadedGroups.join(', ')}. Considere redistribuir a carga.`,
+          priority: 'Alta',
+          category: 'Recursos',
+          impactPercentage: 20.0
+        });
+      }
+    }
+
+    return recommendations;
+  }
+
+  analyzeGroupDistribution(incidents) {
+    const distribution = {};
+    
+    incidents.forEach(incident => {
+      const group = incident.GRUPO_DIRECIONADO || 'SEM_GRUPO';
+      distribution[group] = (distribution[group] || 0) + (incident.volume || 1);
+    });
+    
+    return distribution;
   }
 }
 

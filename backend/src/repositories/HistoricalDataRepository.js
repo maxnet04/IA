@@ -10,13 +10,14 @@ class HistoricalDataRepository extends BaseRepository {
     registerTables() {
         const dbManager = DatabaseManager.getInstance();
         
-        // Registra a tabela historical_data
+        // Registra a tabela historical_data (mantém compatibilidade com produtos)
         dbManager.registerTable(
             'historical_data',
             `
                 CREATE TABLE IF NOT EXISTS historical_data (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    product_id TEXT NOT NULL,
+                    product_id TEXT,
+                    group_id TEXT,
                     date TEXT NOT NULL,
                     volume INTEGER NOT NULL,
                     category TEXT,
@@ -25,14 +26,14 @@ class HistoricalDataRepository extends BaseRepository {
                     resolution_time INTEGER,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(product_id, date)
+                    UNIQUE(COALESCE(product_id, '') || COALESCE(group_id, '') || date)
                 )
             `
         );
     }
 
     /**
-     * Salva dados históricos para um ou mais produtos
+     * Salva dados históricos para um ou mais produtos/grupos
      * @param {Object|Array} data Objeto ou array de objetos com dados históricos
      * @returns {Promise<Array>} IDs dos registros inseridos
      */
@@ -43,15 +44,16 @@ class HistoricalDataRepository extends BaseRepository {
 
         const query = `
             INSERT OR REPLACE INTO historical_data 
-            (product_id, date, volume, category, priority, group_name, resolution_time, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            (product_id, group_id, date, volume, category, priority, group_name, resolution_time, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `;
 
         const promises = data.map(item => {
             return this.execute(
                     query,
                     [
-                        item.product_id,
+                        item.product_id || null,
+                        item.group_id || null,
                         item.date,
                         item.volume,
                         item.category,
@@ -60,6 +62,31 @@ class HistoricalDataRepository extends BaseRepository {
                         item.resolution_time
                 ]
                 );
+        });
+
+        return Promise.all(promises);
+    }
+
+    /**
+     * Salva dados históricos para grupos
+     * @param {Object|Array} data Objeto ou array de objetos com dados históricos de grupos
+     * @returns {Promise<Array>} IDs dos registros inseridos
+     */
+    async saveGroupHistoricalData(data) {
+        if (!Array.isArray(data)) {
+            data = [data];
+        }
+
+        const promises = data.map(item => {
+            return this.saveHistoricalData({
+                group_id: item.group_id,
+                date: item.date,
+                volume: item.volume,
+                category: item.category,
+                priority: item.priority,
+                group_name: item.group_name,
+                resolution_time: item.resolution_time
+            });
         });
 
         return Promise.all(promises);
@@ -88,7 +115,7 @@ class HistoricalDataRepository extends BaseRepository {
                     GROUP_CONCAT(DISTINCT group_name) as group_name,
                     AVG(resolution_time) as resolution_time
                 FROM historical_data
-                WHERE 1=1
+                WHERE product_id IS NOT NULL
             `;
         } else {
             // Para produtos específicos, mantém o comportamento original
@@ -106,6 +133,55 @@ class HistoricalDataRepository extends BaseRepository {
         }
 
         if (productId === 'ALL') {
+            query += ' GROUP BY date';
+        }
+
+        query += ' ORDER BY date ASC';
+
+        return this.query(query, params);
+    }
+
+    /**
+     * Obtém dados históricos para um grupo
+     * @param {string} groupId ID do grupo
+     * @param {string} startDate Data inicial
+     * @param {string} endDate Data final
+     * @returns {Promise<Array>} Dados históricos
+     */
+    async getGroupHistoricalData(groupId, startDate = null, endDate = null) {
+        let query;
+        const params = [];
+
+        if (groupId === 'ALL') {
+            // Para 'ALL', soma os volumes de todos os grupos por data
+            query = `
+                SELECT 
+                    'ALL' as group_id,
+                    date,
+                    SUM(volume) as volume,
+                    GROUP_CONCAT(DISTINCT category) as category,
+                    GROUP_CONCAT(DISTINCT priority) as priority,
+                    GROUP_CONCAT(DISTINCT group_name) as group_name,
+                    AVG(resolution_time) as resolution_time
+                FROM historical_data
+                WHERE group_id IS NOT NULL
+            `;
+        } else {
+            // Para grupos específicos
+            query = 'SELECT * FROM historical_data WHERE group_id = ?';
+            params.push(groupId);
+        }
+
+        if (startDate) {
+            query += ' AND date >= ?';
+            params.push(startDate);
+        }
+        if (endDate) {
+            query += ' AND date <= ?';
+            params.push(endDate);
+        }
+
+        if (groupId === 'ALL') {
             query += ' GROUP BY date';
         }
 

@@ -39,7 +39,8 @@ import {
     Refresh as RefreshIcon,
     Info as InfoIcon,
     Dashboard as DashboardIcon,
-    CalendarToday as CalendarTodayIcon
+    CalendarToday as CalendarTodayIcon,
+    Group as GroupIcon
 } from '@mui/icons-material';
 import { useNavigate, Link } from 'react-router-dom';
 import MainLayout from '../../layouts/MainLayout';
@@ -112,20 +113,40 @@ const DashboardPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedFilter, setSelectedFilter] = useState({ value: 'ALL', mode: 'products', type: 'product' });
     const [summary, setSummary] = useState({
         predictions: [],
         anomalies: [],
-        recommendations: [],
+        recommendations: [], // Inicializado como array vazio
         metrics: null,
         timeline: []
     });
+    const [isLoading, setIsLoading] = useState(false); // Controle de loading
+    const [lastLoadTime, setLastLoadTime] = useState(0); // Controle de tempo da última chamada
 
     useEffect(() => {
-        loadDashboardData();
+        // Evita múltiplas chamadas simultâneas e implementa debounce
+        const now = Date.now();
+        const timeSinceLastLoad = now - lastLoadTime;
+        
+        // Se já carregou nos últimos 2 segundos, não carrega novamente
+        if (!isLoading && timeSinceLastLoad > 2000) {
+            setLastLoadTime(now);
+            loadDashboardData();
+        } else {
+            console.log('Dashboard: Ignorando chamada duplicada (debounce ativo)');
+        }
     }, []);
 
     const loadDashboardData = async () => {
+        // Verifica se já está carregando para evitar múltiplas chamadas
+        if (isLoading) {
+            console.log('Dashboard já está carregando, ignorando nova chamada');
+            return;
+        }
+
         setLoading(true);
+        setIsLoading(true);
         setError(null);
 
         try {
@@ -143,12 +164,15 @@ const DashboardPage = () => {
             }
             
             // Carregar os outros dados de resumo
+            const currentDate = new Date().toISOString().split('T')[0];
+            console.log('Iniciando chamadas para APIs...');
             const [predictionsResult, anomaliesResult, recommendationsResult, metricsResult] = await Promise.allSettled([
-                predictiveService.getPredictedVolume(new Date().toISOString().split('T')[0], 'ALL'),
+                predictiveService.getPredictedVolume(currentDate, 'ALL'),
                 predictiveService.detectAnomalies('ALL', null, null, 'alta', 5),
-                predictiveService.getRecommendations('ALL'),
+                predictiveService.getRecommendations('ALL', currentDate),
                 predictiveService.getDetailedMetrics('ALL')
             ]);
+            console.log('Todas as chamadas para APIs concluídas');
 
             const results = {
                 predictions: null,
@@ -199,19 +223,29 @@ const DashboardPage = () => {
             if (recommendationsResult.status === 'fulfilled') {
                 console.log('Dados de recomendações recebidos:', recommendationsResult.value);
                 
-                // Verificar se temos recomendações dentro da estrutura
-                const recommendationsData = recommendationsResult.value.data;
+                // A estrutura é: recommendationsResult.value.data.data.recommendations
+                // Porque o predictiveService retorna { success: true, data: response.data }
+                // E response.data já tem { success: true, data: { recommendations: [...] } }
+                const serviceData = recommendationsResult.value.data; // { success: true, data: { recommendations: [...] } }
+                const recommendationsData = serviceData.data; // { recommendations: [...] }
                 
-                if (recommendationsData && recommendationsData.recommendations) {
+                if (recommendationsData && recommendationsData.recommendations && Array.isArray(recommendationsData.recommendations)) {
                     results.recommendations = recommendationsData.recommendations.map(rec => ({
-                        title: rec.description || rec.type,
-                        description: rec.impact || rec.description,
+                        title: rec.title,
+                        description: rec.description,
                         priority: rec.priority,
-                        type: rec.type
+                        category: rec.category,
+                        impactPercentage: rec.impactPercentage,
+                        supportingEvidence: rec.supportingEvidence
                     }));
+                } else {
+                    results.recommendations = [];
                 }
                 
                 console.log('Dados de recomendações processados:', results.recommendations);
+            } else {
+                console.log('recommendationsResult falhou:', recommendationsResult.status);
+                results.recommendations = [];
             }
             
             // Processar dados de métricas
@@ -220,11 +254,11 @@ const DashboardPage = () => {
                 
                 const metricsData = metricsResult.value.data;
                 
-                if (metricsData) {
+                if (metricsData && metricsData.metrics) {
                     results.metrics = {
-                        media_volume_diario: metricsData.avg_volume || 0,
-                        tempo_medio_resolucao: metricsData.avg_resolution_time || 0,
-                        taxa_resolucao: metricsData.trend ? Math.abs(metricsData.trend) * 100 : 0
+                        media_volume_diario: metricsData.metrics.averageVolume || 0,
+                        tempo_medio_resolucao: metricsData.metrics.avg_resolution_time || 0,
+                        taxa_resolucao: metricsData.metrics.trend ? Math.abs(metricsData.metrics.trend) * 100 : 0
                     };
                 }
                 
@@ -251,15 +285,23 @@ const DashboardPage = () => {
                 console.log('Dados de timeline formatados:', results.timeline);
             }
 
-            setSummary(results);
+            // Forçar re-render adicionando timestamp
+            const finalResults = {
+                ...results,
+                lastUpdated: new Date().getTime()
+            };
+            
+            setSummary(finalResults);
             
             // Informações para depuração
-            console.log('Dados do dashboard processados:', results);
+            console.log('Dados do dashboard processados:', finalResults);
+            console.log('Recomendações carregadas:', finalResults.recommendations?.length || 0, 'itens');
         } catch (err) {
             console.error('Erro ao carregar dados do dashboard:', err);
             setError('Erro ao carregar dados do dashboard. Por favor, tente novamente mais tarde.');
         } finally {
             setLoading(false);
+            setIsLoading(false);
         }
     };
 
@@ -274,9 +316,9 @@ const DashboardPage = () => {
 
     const getTrendText = (trend) => {
         if (trend > 0) {
-            return `Aumento de ${trend}%`;
+            return `Aumento de ${Math.round(trend)}%`;
         } else if (trend < 0) {
-            return `Redução de ${Math.abs(trend)}%`;
+            return `Redução de ${Math.round(Math.abs(trend))}%`;
         }
         return 'Estável';
     };
@@ -474,7 +516,7 @@ const DashboardPage = () => {
                                 }
                             />
                             <CardContent>
-                                {summary.recommendations && summary.recommendations.length > 0 ? (
+                                {(summary.recommendations && Array.isArray(summary.recommendations) && summary.recommendations.length > 0) ? (
                                     <Stack spacing={1}>
                                         <Typography variant="h5">
                                             {summary.recommendations.length}
@@ -514,7 +556,7 @@ const DashboardPage = () => {
                                 action={
                                     <Button 
                                         size="small" 
-                                        onClick={() => navigate('/predictive')}
+                                        onClick={() => navigate('/groups')}
                                         sx={{ 
                                             color: '#1976d2',
                                             fontSize: '0.75rem',
@@ -556,7 +598,7 @@ const DashboardPage = () => {
                             </CardContent>
                         </Card>
                     </Grid>
-                    </Grid>
+                </Grid>
 
                 {/* Card de Volume */}
                 <Grid container spacing={3} sx={{ mb: 3, width: '100%', maxWidth: 'none' }}>
@@ -727,9 +769,9 @@ const DashboardPage = () => {
                             </CardContent>
                         </Card>
                     </Grid>
-                    </Grid>
+                </Grid>
 
-                    {/* Últimas Anomalias */}
+                {/* Últimas Anomalias */}
                 <Grid container spacing={3}>
                     <Grid item xs={12}>
                         <Card 

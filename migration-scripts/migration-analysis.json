@@ -1,0 +1,234 @@
+{
+  "timestamp": "2025-06-25T01:06:09.322Z",
+  "phase": "FASE 1 - PREPARAÇÃO E ANÁLISE",
+  "summary": {
+    "total_groups": 8,
+    "total_incidents": 71731,
+    "backup_created": true,
+    "dependencies_mapped": 4,
+    "validation_issues": 0
+  },
+  "details": {
+    "grupos": [
+      {
+        "GRUPO_DIRECIONADO": "SEGURANCA",
+        "total_incidents": 9064,
+        "unique_categories": 8,
+        "first_incident": "2022-12-31 05:59:09",
+        "last_incident": "2025-05-07 01:03:37",
+        "resolved_count": 3012,
+        "redirected_count": 3019,
+        "cancelled_count": 3033
+      },
+      {
+        "GRUPO_DIRECIONADO": "SUPORTE_N2",
+        "total_incidents": 9031,
+        "unique_categories": 8,
+        "first_incident": "2022-12-31 07:07:33",
+        "last_incident": "2025-05-07 01:50:05",
+        "resolved_count": 3030,
+        "redirected_count": 3014,
+        "cancelled_count": 2987
+      },
+      {
+        "GRUPO_DIRECIONADO": "DADOS",
+        "total_incidents": 8995,
+        "unique_categories": 8,
+        "first_incident": "2022-12-31 08:44:17",
+        "last_incident": "2025-05-07 02:38:48",
+        "resolved_count": 2975,
+        "redirected_count": 2977,
+        "cancelled_count": 3043
+      },
+      {
+        "GRUPO_DIRECIONADO": "DEV",
+        "total_incidents": 8993,
+        "unique_categories": 8,
+        "first_incident": "2022-12-31 06:09:33",
+        "last_incident": "2025-05-07 02:43:54",
+        "resolved_count": 2958,
+        "redirected_count": 2998,
+        "cancelled_count": 3037
+      },
+      {
+        "GRUPO_DIRECIONADO": "INFRAESTRUTURA",
+        "total_incidents": 8954,
+        "unique_categories": 8,
+        "first_incident": "2022-12-31 04:02:19",
+        "last_incident": "2025-05-07 02:31:47",
+        "resolved_count": 2965,
+        "redirected_count": 2983,
+        "cancelled_count": 3006
+      },
+      {
+        "GRUPO_DIRECIONADO": "DESENVOLVIMENTO",
+        "total_incidents": 8911,
+        "unique_categories": 8,
+        "first_incident": "2022-12-31 09:31:14",
+        "last_incident": "2025-05-06 17:44:44",
+        "resolved_count": 3035,
+        "redirected_count": 2935,
+        "cancelled_count": 2941
+      },
+      {
+        "GRUPO_DIRECIONADO": "SUPORTE",
+        "total_incidents": 8892,
+        "unique_categories": 8,
+        "first_incident": "2022-12-31 03:12:31",
+        "last_incident": "2025-05-07 02:48:59",
+        "resolved_count": 2979,
+        "redirected_count": 2962,
+        "cancelled_count": 2951
+      },
+      {
+        "GRUPO_DIRECIONADO": "SUPORTE_N1",
+        "total_incidents": 8891,
+        "unique_categories": 8,
+        "first_incident": "2022-12-31 03:05:42",
+        "last_incident": "2025-05-07 01:28:26",
+        "resolved_count": 2916,
+        "redirected_count": 2933,
+        "cancelled_count": 3042
+      }
+    ],
+    "estatisticas": {
+      "produtos_atuais": {
+        "historical_data_products": [
+          {
+            "product_id": "PRODUTO_A",
+            "records": 858
+          },
+          {
+            "product_id": "PRODUTO_B",
+            "records": 858
+          },
+          {
+            "product_id": "PRODUTO_C",
+            "records": 858
+          }
+        ],
+        "incidents_products": [
+          {
+            "product_id": "PRODUTO_A",
+            "records": 24067
+          },
+          {
+            "product_id": "PRODUTO_B",
+            "records": 24139
+          },
+          {
+            "product_id": "PRODUTO_C",
+            "records": 23525
+          }
+        ],
+        "notifications_products": []
+      }
+    },
+    "dependencias": [
+      {
+        "type": "frontend_components",
+        "files": [
+          {
+            "path": "frontend/src/presentation/components/PredictiveAnalysis/index.js",
+            "exists": true,
+            "needsModification": true
+          },
+          {
+            "path": "frontend/src/presentation/pages/RecommendationsPage/index.js",
+            "exists": true,
+            "needsModification": true
+          },
+          {
+            "path": "frontend/src/presentation/pages/AnomaliesPage/index.js",
+            "exists": true,
+            "needsModification": true
+          }
+        ]
+      },
+      {
+        "type": "frontend_hooks",
+        "files": [
+          {
+            "path": "frontend/src/application/hooks/usePredictiveAnalysis.js",
+            "exists": true,
+            "needsModification": true
+          },
+          {
+            "path": "frontend/src/application/hooks/useRecommendations.js",
+            "exists": true,
+            "needsModification": true
+          },
+          {
+            "path": "frontend/src/application/hooks/useAnomalies.js",
+            "exists": true,
+            "needsModification": true
+          }
+        ]
+      },
+      {
+        "type": "backend_services",
+        "files": [
+          {
+            "path": "backend/src/services/PredictiveAnalysisService.js",
+            "exists": true,
+            "needsModification": true
+          },
+          {
+            "path": "backend/src/services/RecommendationService.js",
+            "exists": true,
+            "needsModification": true
+          },
+          {
+            "path": "backend/src/repositories/HistoricalDataRepository.js",
+            "exists": true,
+            "needsModification": true
+          }
+        ]
+      },
+      {
+        "type": "backend_controllers",
+        "files": [
+          {
+            "path": "backend/src/controllers/PredictiveAnalysisController.js",
+            "exists": true,
+            "needsModification": true
+          },
+          {
+            "path": "backend/src/controllers/PredictiveController.js",
+            "exists": true,
+            "needsModification": true
+          }
+        ]
+      }
+    ],
+    "validacoes": [
+      {
+        "name": "grupos_nulos",
+        "query": "SELECT COUNT(*) as count FROM incidents WHERE GRUPO_DIRECIONADO IS NULL",
+        "description": "Incidentes sem grupo direcionado",
+        "count": 0,
+        "status": "ok"
+      },
+      {
+        "name": "produtos_vazios",
+        "query": "SELECT COUNT(*) as count FROM historical_data WHERE product_id IS NULL OR product_id = \"\"",
+        "description": "Registros históricos sem produto",
+        "count": 0,
+        "status": "ok"
+      },
+      {
+        "name": "inconsistencia_datas",
+        "query": "SELECT COUNT(*) as count FROM incidents WHERE DATA_CRIACAO > DATA_ENCERRAMENTO AND DATA_ENCERRAMENTO IS NOT NULL",
+        "description": "Incidentes com datas inconsistentes",
+        "count": 0,
+        "status": "ok"
+      }
+    ]
+  },
+  "next_steps": [
+    "Revisar grupos identificados",
+    "Verificar dependências mapeadas",
+    "Resolver questões de validação se houver",
+    "Prosseguir para Fase 2 - Backend"
+  ]
+}

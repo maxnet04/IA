@@ -2,6 +2,7 @@ const express = require('express');
 const authRoutes = require('./authRoutes');
 const predictiveAnalysisRoutes = require('./predictiveAnalysisRoutes');
 const incidentRoutes = require('./incidentRoutes');
+const groupRoutes = require('./groupRoutes');
 const IncidentController = require('../../controllers/IncidentController');
 const AuthController = require('../../controllers/AuthController');
 const UserRepository = require('../../repositories/UserRepository');
@@ -21,5 +22,8 @@ router.use('/predictive', predictiveAnalysisRoutes);
 // Rotas de incidentes
 const incidentController = new IncidentController();
 router.use('/incidents', incidentRoutes(incidentController));
+
+// Rotas de grupos
+router.use('/groups', groupRoutes);
 
 module.exports = router; 

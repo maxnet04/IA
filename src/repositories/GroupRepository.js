@@ -1,0 +1,1 @@
+﻿const BaseRepository = require('./BaseRepository');

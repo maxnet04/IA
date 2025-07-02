@@ -1,4 +1,5 @@
 const HistoricalDataRepository = require('../repositories/HistoricalDataRepository');
+const GroupRepository = require('../repositories/GroupRepository');
 const logger = require('../utils/logger');
 const { predictLinearRegression, predictARIMA, predictMovingAverage } = require('../utils/predictionAlgorithms');
 
@@ -6,8 +7,9 @@ const { predictLinearRegression, predictARIMA, predictMovingAverage } = require(
  * Serviço para análise preditiva
  */
 class PredictiveAnalysisService {
-    constructor(historicalDataRepository) {
+    constructor(historicalDataRepository, groupRepository) {
         this.historicalDataRepository = historicalDataRepository || new HistoricalDataRepository();
+        this.groupRepository = groupRepository || new GroupRepository();
         this.algorithms = {
             linearRegression: predictLinearRegression,
             arima: predictARIMA,
@@ -1246,6 +1248,581 @@ class PredictiveAnalysisService {
     async getPredictions(productId, targetDate, daysForward) {
         // Por padrão, usamos o novo método ensemble para melhores resultados
         return this.getPredictionsWithEnsemble(productId, targetDate, daysForward);
+    }
+
+    // ===================== MÉTODOS PARA GRUPOS =====================
+
+    /**
+     * Previsão de volume por grupo
+     * @param {string} date Data da previsão
+     * @param {string} groupId ID do grupo
+     * @returns {Promise<Object>} Previsão de volume
+     */
+    async predictVolumeByGroup(date, groupId) {
+        try {
+            const historicalData = await this.groupRepository.getHistoricalData(groupId);
+            
+            // Verificação especial para o grupo "ALL"
+            if (groupId === 'ALL' && historicalData.length > 0) {
+                console.log(`Usando ${historicalData.length} registros disponíveis para o grupo ALL`);
+                
+                const prediction = this._calculatePredictionWithLimitedData(historicalData);
+                const trend = this._calculateTrend(historicalData);
+                            const result = {
+                date,
+                predictedVolume: prediction,
+                confidence: Math.max(0.2, historicalData.length / this.MIN_HISTORICAL_DATA),
+                trend: trend,
+                warning: historicalData.length < this.MIN_HISTORICAL_DATA ? 
+                    `Dados históricos limitados (${historicalData.length}/${this.MIN_HISTORICAL_DATA} dias recomendados)` : null
+            };
+            
+            // 🆕 GERAÇÃO AUTOMÁTICA DE NOTIFICAÇÕES para previsões com baixa confiança
+            await this._createPredictionNotifications(groupId, result);
+            
+            return result;
+            }
+            
+            // Validação normal para outros grupos
+            if (historicalData.length < this.MIN_HISTORICAL_DATA) {
+                throw new Error(`Dados históricos insuficientes para o grupo ${groupId}. Necessário pelo menos ${this.MIN_HISTORICAL_DATA} dias.`);
+            }
+
+            const prediction = this._calculatePrediction(historicalData);
+            const trend = this._calculateTrend(historicalData);
+            return {
+                date,
+                predictedVolume: prediction,
+                confidence: this._calculateConfidence(historicalData),
+                trend: trend,
+                groupId: groupId
+            };
+        } catch (error) {
+            console.error(`Erro ao prever volume para o grupo ${groupId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Detecção de anomalias por grupo
+     * @param {string} groupId ID do grupo
+     * @param {string} startDate Data inicial
+     * @param {string} endDate Data final
+     * @param {string} severity Severidade das anomalias
+     * @param {number} limit Limite de resultados
+     * @returns {Promise<Object>} Anomalias detectadas
+     */
+    async detectGroupAnomalies(groupId, startDate, endDate, severity, limit) {
+        try {
+            console.log(`Service - Detectando anomalias por grupo: groupId=${groupId}, startDate=${startDate}, endDate=${endDate}, severity=${severity}, limit=${limit}`);
+            
+            // Ajustar o período se não for fornecido
+            if (!startDate) {
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                startDate = thirtyDaysAgo.toISOString().split('T')[0];
+                console.log(`Data inicial não fornecida, usando padrão: ${startDate}`);
+            }
+            
+            if (!endDate) {
+                const today = new Date();
+                endDate = today.toISOString().split('T')[0];
+                console.log(`Data final não fornecida, usando padrão: ${endDate}`);
+            }
+            
+            const historicalData = await this.groupRepository.getHistoricalData(groupId, startDate, endDate);
+            console.log(`Encontrados ${historicalData.length} registros históricos para o grupo ${groupId}`);
+            
+            // Tratamento especial para o agregado 'ALL'
+            if (groupId === 'ALL') {
+                if (historicalData.length === 0) {
+                    return {
+                        anomalies: [],
+                        threshold: 0,
+                        period: { startDate, endDate },
+                        warning: 'Nenhum dado histórico encontrado para análise agregada por grupos.'
+                    };
+                }
+
+                const { anomalies, threshold } = this._detectAnomalies(historicalData);
+                console.log(`Detectadas ${anomalies.length} anomalias para o agregado ALL (grupos)`);
+
+                let filteredAnomalies = anomalies;
+                if (severity) {
+                    filteredAnomalies = anomalies.filter(anomaly => 
+                        anomaly.severity && 
+                        anomaly.severity.toLowerCase() === severity.toLowerCase()
+                    );
+                }
+
+                if (limit && !isNaN(parseInt(limit))) {
+                    filteredAnomalies = filteredAnomalies.slice(0, parseInt(limit));
+                }
+
+                return {
+                    anomalies: filteredAnomalies,
+                    threshold,
+                    period: { startDate, endDate },
+                    warning: historicalData.length < this.MIN_HISTORICAL_DATA ? 
+                        `Análise agregada por grupos realizada com dados limitados (${historicalData.length}/${this.MIN_HISTORICAL_DATA} dias recomendados).` : 
+                        undefined
+                };
+            }
+
+            // Verificação para grupos individuais
+            if (historicalData.length === 0) {
+                throw new Error(`Nenhum dado histórico encontrado para o grupo ${groupId} no período especificado.`);
+            }
+
+            if (historicalData.length < this.MIN_HISTORICAL_DATA) {
+                return {
+                    anomalies: [],
+                    threshold: this._calculateBasicThreshold(historicalData),
+                    period: { startDate, endDate },
+                    warning: `Dados históricos limitados (${historicalData.length}/${this.MIN_HISTORICAL_DATA} dias recomendados). Análise de anomalias pode não ser precisa.`
+                };
+            }
+
+            const { anomalies, threshold } = this._detectAnomalies(historicalData);
+            console.log(`Detectadas ${anomalies.length} anomalias para o grupo ${groupId}`);
+            
+            let filteredAnomalies = anomalies;
+            if (severity) {
+                console.log(`Filtrando anomalias por severidade: ${severity}`);
+                filteredAnomalies = anomalies.filter(anomaly => 
+                    anomaly.severity && 
+                    anomaly.severity.toLowerCase() === severity.toLowerCase()
+                );
+                console.log(`${filteredAnomalies.length} anomalias após filtro de severidade`);
+            }
+            
+            if (limit && !isNaN(parseInt(limit))) {
+                const limitNumber = parseInt(limit);
+                console.log(`Limitando a ${limitNumber} anomalias`);
+                filteredAnomalies = filteredAnomalies.slice(0, limitNumber);
+                console.log(`${filteredAnomalies.length} anomalias após aplicar limite`);
+            }
+            
+            // 🆕 GERAÇÃO AUTOMÁTICA DE NOTIFICAÇÕES
+            await this._createAnomalyNotifications(groupId, filteredAnomalies);
+            
+            return {
+                anomalies: filteredAnomalies,
+                threshold,
+                period: { startDate, endDate },
+                groupId: groupId
+            };
+        } catch (error) {
+            console.error(`Erro ao detectar anomalias para o grupo ${groupId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Gera recomendações para um grupo
+     * @param {string} groupId ID do grupo
+     * @returns {Promise<Object>} Recomendações
+     */
+    async generateGroupRecommendations(groupId) {
+        try {
+            const historicalData = await this.groupRepository.getHistoricalData(groupId);
+            
+            // Verificação especial para grupos com dados insuficientes
+            if (historicalData.length > 0 && historicalData.length < this.MIN_HISTORICAL_DATA) {
+                console.log(`Usando ${historicalData.length} registros disponíveis para recomendações do grupo ${groupId}`);
+                
+                const basicRecommendations = this._generateBasicRecommendations(historicalData);
+                return {
+                    groupId,
+                    recommendations: basicRecommendations,
+                    basedOn: {
+                        dataPoints: historicalData.length,
+                        dateRange: {
+                            start: historicalData[0]?.date,
+                            end: historicalData[historicalData.length - 1]?.date
+                        }
+                    },
+                    warning: `Recomendações baseadas em dados limitados (${historicalData.length}/${this.MIN_HISTORICAL_DATA} dias recomendados).`
+                };
+            }
+            
+            if (historicalData.length < this.MIN_HISTORICAL_DATA) {
+                throw new Error(`Dados históricos insuficientes para gerar recomendações para o grupo ${groupId}. Necessário pelo menos ${this.MIN_HISTORICAL_DATA} dias.`);
+            }
+
+            const recommendations = this._generateRecommendations(historicalData);
+            return {
+                groupId,
+                recommendations,
+                basedOn: {
+                    dataPoints: historicalData.length,
+                    dateRange: {
+                        start: historicalData[0]?.date,
+                        end: historicalData[historicalData.length - 1]?.date
+                    }
+                }
+            };
+        } catch (error) {
+            console.error(`Erro ao gerar recomendações para o grupo ${groupId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Obtém métricas de grupo
+     * @param {string} groupId ID do grupo
+     * @param {string} startDate Data inicial
+     * @param {string} endDate Data final
+     * @returns {Promise<Object>} Métricas do grupo
+     */
+    async getGroupMetrics(groupId, startDate, endDate) {
+        try {
+            const historicalData = await this.groupRepository.getHistoricalData(groupId, startDate, endDate);
+            const groupDetails = await this.groupRepository.getGroupDetails(groupId);
+            const aggregatedMetrics = await this.groupRepository.getAggregatedMetrics(groupId, startDate, endDate);
+            
+            if (historicalData.length === 0) {
+                return {
+                    groupId,
+                    period: { startDate, endDate },
+                    metrics: {
+                        totalVolume: 0,
+                        averageVolume: 0,
+                        trend: 'sem dados',
+                        anomalies: 0
+                    },
+                    warning: 'Nenhum dado encontrado para o período especificado.'
+                };
+            }
+
+            const totalVolume = historicalData.reduce((sum, item) => sum + item.volume, 0);
+            const averageVolume = totalVolume / historicalData.length;
+            const trend = this._calculateTrend(historicalData);
+            
+            // Detectar anomalias no período
+            const { anomalies } = this._detectAnomalies(historicalData);
+
+            // Calcular dias sem incidentes
+            const daysWithoutIncidents = historicalData.filter(item => item.volume === 0).length;
+
+            // Calcular tempo médio de resolução (simulado baseado no volume)
+            // Para dados reais, isso deveria vir de uma tabela de incidentes com timestamps de abertura/fechamento
+            const avgResolutionTime = this._calculateEstimatedResolutionTime(historicalData);
+
+            return {
+                groupId,
+                groupName: groupDetails?.group_name || groupId,
+                period: { startDate, endDate },
+                metrics: {
+                    totalVolume,
+                    averageVolume: Math.round(averageVolume),
+                    maxVolume: Math.max(...historicalData.map(item => item.volume)),
+                    minVolume: Math.min(...historicalData.map(item => item.volume)),
+                    trend,
+                    anomalies: anomalies.length,
+                    dataPoints: historicalData.length,
+                    daysWithoutIncidents,
+                    avg_resolution_time: avgResolutionTime,
+                    ...aggregatedMetrics
+                },
+                groupDetails
+            };
+        } catch (error) {
+            console.error(`Erro ao obter métricas para o grupo ${groupId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Obtém histórico de volume para um grupo
+     * @param {string} groupId ID do grupo
+     * @param {string} targetDate Data alvo
+     * @param {number} monthsBack Número de meses para trás
+     * @returns {Promise<Array>} Histórico de volumes
+     */
+    async getGroupVolumeHistory(groupId, targetDate, monthsBack) {
+        try {
+            return await this.groupRepository.getVolumeHistory(groupId, targetDate, monthsBack);
+        } catch (error) {
+            console.error(`Erro ao obter histórico de volume para o grupo ${groupId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Obtém previsões com ensemble para um grupo
+     * @param {string} groupId ID do grupo
+     * @param {string} targetDate Data inicial das previsões
+     * @param {number} daysForward Número de dias para prever
+     * @returns {Promise<Array>} Array com previsões
+     */
+    async getGroupPredictionsWithEnsemble(groupId, targetDate, daysForward) {
+        try {
+            let historicalData;
+            if (groupId === 'ALL') {
+                // Buscar todos os dados históricos, agregando por data
+                historicalData = await this.groupRepository.getHistoricalData('ALL');
+            } else {
+                historicalData = await this.groupRepository.getHistoricalData(groupId);
+            }
+            
+            if (!historicalData || historicalData.length === 0) {
+                throw new Error(`Nenhum dado histórico encontrado para o grupo ${groupId}.`);
+            }
+
+            // O restante da lógica permanece igual, usando historicalData
+            const startDate = new Date(targetDate);
+            const endDate = new Date(targetDate);
+            endDate.setDate(endDate.getDate() + daysForward);
+            
+            // Adaptar dados históricos para o formato esperado
+            const adaptedHistoricalData = historicalData.map(item => ({
+                date: item.date,
+                volume: item.volume,
+                group_id: item.group_id || groupId
+            }));
+
+            if (adaptedHistoricalData.length < 5) {
+                console.log(`Dados históricos limitados para o grupo ${groupId}. Usando previsão simples.`);
+                
+                const lastVolume = adaptedHistoricalData[adaptedHistoricalData.length - 1]?.volume || 10;
+                const trend = this._calculateTrend(adaptedHistoricalData);
+                
+                const predictions = [];
+                let currentDate = new Date(targetDate);
+                let currentVolume = lastVolume;
+                
+                for (let i = 0; i < daysForward; i++) {
+                    const trendEffect = trend === 'crescente' ? 1.02 : trend === 'decrescente' ? 0.98 : 1.0;
+                    currentVolume = Math.round(currentVolume * trendEffect);
+                    
+                    predictions.push({
+                        date: currentDate.toISOString().split('T')[0],
+                        predictedVolume: currentVolume,
+                        confidence: Math.max(30, 80 - (i * 5)), // Diminui confiança com o tempo
+                        groupId: groupId
+                    });
+                    
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                
+                return predictions;
+            }
+
+            // Usar a lógica de ensemble existente
+            // Simulação similar ao método getPredictionsWithEnsemble, mas adaptado para grupos
+            console.log(`Gerando previsões com ensemble para o grupo ${groupId} de ${targetDate} por ${daysForward} dias`);
+
+            const recentData = adaptedHistoricalData.slice(-30);
+            const lastVolume = recentData[recentData.length - 1]?.volume || 10;
+            const recentAvg = recentData.reduce((sum, item) => sum + item.volume, 0) / recentData.length;
+            
+            const upperLimit = Math.round(recentAvg * 3);
+            const lowerLimit = Math.max(1, Math.round(recentAvg * 0.3));
+            
+            const trendAnalysis = this._calculateDetailedTrend(adaptedHistoricalData);
+            
+            const predictions = [];
+            let currentDate = new Date(targetDate);
+            let lastPrediction = null;
+            let dayCounter = 0;
+            const randomFactor = () => (Math.random() * 0.03) - 0.015;
+            const seasonality = this._detectSeasonality(adaptedHistoricalData);
+            const hasSeasonality = seasonality.isSeasonal;
+            const regressionToMeanFactor = 0.03;
+            
+            while (currentDate <= endDate) {
+                let baseVolume;
+                
+                if (lastPrediction) {
+                    baseVolume = lastPrediction.predictedVolume;
+                    const trendEffect = trendAnalysis.rate * Math.max(0.5, 1 - (dayCounter * 0.05));
+                    const randomEffect = randomFactor();
+                    const meanEffect = (recentAvg - baseVolume) / baseVolume;
+                    const regressionEffect = meanEffect * regressionToMeanFactor * dayCounter;
+                    const totalEffect = trendEffect + randomEffect + regressionEffect;
+                    const limitedEffect = Math.max(-0.05, Math.min(0.05, totalEffect));
+                    baseVolume = Math.round(baseVolume * (1 + limitedEffect));
+                } else {
+                    baseVolume = this._calculateEnsemblePrediction(adaptedHistoricalData).predictedVolume || lastVolume;
+                    const maxFirstDayVariation = 0.10;
+                    if (Math.abs(baseVolume - lastVolume) / lastVolume > maxFirstDayVariation) {
+                        const direction = baseVolume > lastVolume ? 1 : -1;
+                        baseVolume = Math.round(lastVolume * (1 + direction * maxFirstDayVariation));
+                    }
+                }
+                
+                if (hasSeasonality) {
+                    const dayOfWeek = currentDate.getDay();
+                    if (seasonality.dailyPatterns && seasonality.dailyPatterns[dayOfWeek]) {
+                        const seasonalFactor = 1 + (parseFloat(seasonality.dailyPatterns[dayOfWeek].normalizedDiff || 0) * 0.7);
+                        baseVolume = Math.round(baseVolume * seasonalFactor);
+                    }
+                }
+                
+                baseVolume = Math.max(lowerLimit, Math.min(upperLimit, baseVolume));
+                const daysFromStart = dayCounter;
+                const confidenceLevel = Math.max(0.4, 0.9 - (daysFromStart * 0.05));
+                
+                const prediction = {
+                    date: currentDate.toISOString().split('T')[0],
+                    predictedVolume: baseVolume,
+                    confidence: Math.round(confidenceLevel * 100),
+                    groupId: groupId
+                };
+                
+                predictions.push(prediction);
+                lastPrediction = prediction;
+                currentDate.setDate(currentDate.getDate() + 1);
+                dayCounter++;
+            }
+            
+            return predictions;
+        } catch (error) {
+            console.error(`Erro ao gerar previsões com ensemble para o grupo ${groupId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Obtém previsões para um grupo (método principal)
+     * @param {string} groupId ID do grupo
+     * @param {string} targetDate Data inicial das previsões
+     * @param {number} daysForward Número de dias para prever
+     * @returns {Promise<Array>} Array com previsões
+     */
+    async getGroupPredictions(groupId, targetDate, daysForward) {
+        return this.getGroupPredictionsWithEnsemble(groupId, targetDate, daysForward);
+    }
+
+    /**
+     * Calcula o tempo médio estimado de resolução baseado no volume de incidentes
+     * @param {Array} historicalData Dados históricos
+     * @returns {number} Tempo médio em minutos
+     */
+    _calculateEstimatedResolutionTime(historicalData) {
+        if (!historicalData || historicalData.length === 0) {
+            return 0;
+        }
+
+        // Algoritmo de estimativa baseado no volume:
+        // - Volumes baixos (1-10): 30-60 min (problemas simples)
+        // - Volumes médios (11-50): 60-120 min (problemas moderados)
+        // - Volumes altos (51+): 120-240 min (problemas complexos ou múltiplos)
+        
+        const totalMinutes = historicalData.reduce((sum, item) => {
+            const volume = item.volume || 0;
+            let estimatedTime;
+            
+            if (volume <= 10) {
+                estimatedTime = 30 + (volume * 3); // 30-60 min
+            } else if (volume <= 50) {
+                estimatedTime = 60 + ((volume - 10) * 1.5); // 60-120 min
+            } else {
+                estimatedTime = 120 + Math.min((volume - 50) * 2, 120); // 120-240 min (máximo)
+            }
+            
+            return sum + estimatedTime;
+        }, 0);
+
+        return Math.round(totalMinutes / historicalData.length);
+    }
+
+    // ===================== MÉTODOS DE NOTIFICAÇÕES AUTOMÁTICAS =====================
+
+    /**
+     * Cria notificações automáticas para anomalias críticas
+     * @param {string} groupId ID do grupo
+     * @param {Array} anomalies Lista de anomalias
+     * @private
+     */
+    async _createAnomalyNotifications(groupId, anomalies) {
+        try {
+            const NotificationRepository = require('../repositories/NotificationRepository');
+            const notificationRepo = new NotificationRepository();
+            
+            // Filtrar apenas anomalias críticas (alta severidade)
+            const criticalAnomalies = anomalies.filter(anomaly => 
+                anomaly.severity && anomaly.severity.toLowerCase() === 'alta'
+            );
+            
+            for (const anomaly of criticalAnomalies) {
+                await notificationRepo.createNotification({
+                    group_id: groupId,
+                    message: `Volume ${anomaly.actualValue} detectado (${Math.round(anomaly.deviation * 100)}% do esperado: ${anomaly.expectedValue})`,
+                    type: 'anomaly',
+                    severity: 'alta',
+                    related_entity: 'anomaly',
+                    related_id: `${groupId}_${anomaly.date}`
+                });
+            }
+            
+            console.log(`${criticalAnomalies.length} notificações de anomalia criadas para o grupo ${groupId}`);
+        } catch (error) {
+            console.error('Erro ao criar notificações de anomalia:', error);
+        }
+    }
+
+    /**
+     * Cria notificações automáticas para previsões com baixa confiança
+     * @param {string} groupId ID do grupo
+     * @param {Object} prediction Dados da previsão
+     * @private
+     */
+    async _createPredictionNotifications(groupId, prediction) {
+        try {
+            // Criar notificação apenas se a confiança for muito baixa (< 50%)
+            if (prediction.confidence < 0.5) {
+                const NotificationRepository = require('../repositories/NotificationRepository');
+                const notificationRepo = new NotificationRepository();
+                
+                await notificationRepo.createNotification({
+                    group_id: groupId,
+                    message: `Previsão com baixa confiança (${Math.round(prediction.confidence * 100)}%) para ${prediction.date}. Volume previsto: ${prediction.predictedVolume}`,
+                    type: 'prediction_warning',
+                    severity: prediction.confidence < 0.3 ? 'alta' : 'média',
+                    related_entity: 'prediction',
+                    related_id: `${groupId}_${prediction.date}`
+                });
+                
+                console.log(`Notificação de previsão com baixa confiança criada para o grupo ${groupId}`);
+            }
+        } catch (error) {
+            console.error('Erro ao criar notificação de previsão:', error);
+        }
+    }
+
+    /**
+     * Cria notificações automáticas para recomendações críticas
+     * @param {string} groupId ID do grupo
+     * @param {Array} recommendations Lista de recomendações
+     * @private
+     */
+    async _createRecommendationNotifications(groupId, recommendations) {
+        try {
+            const NotificationRepository = require('../repositories/NotificationRepository');
+            const notificationRepo = new NotificationRepository();
+            
+            // Filtrar recomendações críticas (prioridade alta)
+            const criticalRecommendations = recommendations.filter(rec => 
+                rec.priority && rec.priority.toLowerCase() === 'alta'
+            );
+            
+            if (criticalRecommendations.length > 0) {
+                await notificationRepo.createNotification({
+                    group_id: groupId,
+                    message: `${criticalRecommendations.length} recomendação(ões) crítica(s) gerada(s): ${criticalRecommendations[0].title}`,
+                    type: 'recommendation',
+                    severity: 'alta',
+                    related_entity: 'recommendation',
+                    related_id: `${groupId}_${Date.now()}`
+                });
+                
+                console.log(`Notificação de recomendação crítica criada para o grupo ${groupId}`);
+            }
+        } catch (error) {
+            console.error('Erro ao criar notificação de recomendação:', error);
+        }
     }
 }
 

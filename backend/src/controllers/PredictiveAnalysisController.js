@@ -1,4 +1,5 @@
 const HistoricalDataRepository = require('../repositories/HistoricalDataRepository');
+const GroupRepository = require('../repositories/GroupRepository');
 const PredictiveAnalysisService = require('../services/PredictiveAnalysisService');
 const { Parser } = require('json2csv');
 
@@ -6,32 +7,46 @@ const { Parser } = require('json2csv');
  * Controlador para análise preditiva
  */
 class PredictiveAnalysisController {
-    constructor(historicalDataRepository, predictionHistoryRepository) {
+    constructor(historicalDataRepository, predictionHistoryRepository, groupRepository) {
         this.historicalDataRepository = historicalDataRepository || new HistoricalDataRepository();
-        this.predictiveService = new PredictiveAnalysisService(this.historicalDataRepository);
+        this.groupRepository = groupRepository || new GroupRepository();
+        this.predictiveService = new PredictiveAnalysisService(this.historicalDataRepository, this.groupRepository);
     }
 
     /**
-     * Obtém previsão de volume para um produto em uma data específica
+     * Obtém previsão de volume para uma data específica
      * @param {Object} req - Requisição HTTP
      * @param {Object} res - Resposta HTTP
      */
     async getPredictedVolume(req, res) {
         try {
-            const { date, productId } = req.query;
+            const { date, productId, groupId } = req.query;
+            
+            // Prioriza groupId, mas mantém compatibilidade com productId
+            const idParam = groupId || productId;
 
-            if (!date || !productId) {
+            if (!date || !idParam) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Parâmetros date e productId são obrigatórios'
+                    error: 'Parâmetros date e groupId (ou productId) são obrigatórios'
                 });
             }
 
-            const prediction = await this.predictiveService.predictVolume(date, productId);
-            return res.status(200).json({
-                success: true,
-                data: prediction
-            });
+            // Se for groupId, usa o método apropriado
+            if (groupId) {
+                const prediction = await this.predictiveService.predictVolumeByGroup(date, groupId);
+                return res.status(200).json({
+                    success: true,
+                    data: prediction
+                });
+            } else {
+                // Mantém compatibilidade com productId
+                const prediction = await this.predictiveService.predictVolume(date, productId);
+                return res.status(200).json({
+                    success: true,
+                    data: prediction
+                });
+            }
         } catch (error) {
             console.error('Erro ao obter previsão de volume:', error);
             // Verifica se é erro de dados insuficientes e retorna mensagem específica
@@ -40,7 +55,7 @@ class PredictiveAnalysisController {
                     success: false,
                     error: 'Erro ao obter previsão de volume',
                     details: error.message,
-                    suggestion: 'Tente outro produto ou adicione mais dados históricos'
+                    suggestion: 'Tente outro grupo/produto ou adicione mais dados históricos'
                 });
             }
             
@@ -59,19 +74,22 @@ class PredictiveAnalysisController {
      */
     async detectAnomalies(req, res) {
         try {
-            const { productId, startDate, endDate, severity, limit } = req.query;
+            const { groupId, productId, startDate, endDate, severity, limit } = req.query;
+            
+            // Usar groupId se disponível, senão usar productId para backward compatibility
+            const id = groupId || productId;
 
-            if (!productId) {
+            if (!id) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Parâmetro productId é obrigatório'
+                    error: 'Parâmetro groupId é obrigatório'
                 });
             }
 
             // Log para depuração
-            console.log(`Detectando anomalias para: productId=${productId}, startDate=${startDate}, endDate=${endDate}, severity=${severity}, limit=${limit}`);
+            console.log(`Detectando anomalias para: groupId=${id}, startDate=${startDate}, endDate=${endDate}, severity=${severity}, limit=${limit}`);
 
-            const anomalies = await this.predictiveService.detectAnomalies(productId, startDate, endDate, severity, limit);
+            const anomalies = await this.predictiveService.detectAnomalies(id, startDate, endDate, severity, limit);
             return res.status(200).json({
                 success: true,
                 data: anomalies
@@ -104,20 +122,33 @@ class PredictiveAnalysisController {
      */
     async getRecommendations(req, res) {
         try {
-            const { productId } = req.query;
+            const { productId, groupId } = req.query;
+            
+            // Prioriza groupId, mas mantém compatibilidade com productId
+            const idParam = groupId || productId;
 
-            if (!productId) {
+            if (!idParam) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Parâmetro productId é obrigatório'
+                    error: 'Parâmetro groupId ou productId é obrigatório'
                 });
             }
 
-            const recommendations = await this.predictiveService.generateRecommendations(productId);
-            return res.status(200).json({
-                success: true,
-                data: recommendations
-            });
+            // Se for groupId, usa o método apropriado
+            if (groupId) {
+                const recommendations = await this.predictiveService.generateGroupRecommendations(groupId);
+                return res.status(200).json({
+                    success: true,
+                    data: recommendations
+                });
+            } else {
+                // Mantém compatibilidade com productId
+                const recommendations = await this.predictiveService.generateRecommendations(productId);
+                return res.status(200).json({
+                    success: true,
+                    data: recommendations
+                });
+            }
         } catch (error) {
             console.error('Erro ao gerar recomendações:', error);
             
@@ -127,7 +158,7 @@ class PredictiveAnalysisController {
                     success: false,
                     error: 'Dados insuficientes para gerar recomendações',
                     details: error.message,
-                    suggestion: 'Tente outro produto com mais histórico ou aguarde a coleta de mais dados'
+                    suggestion: 'Tente outro grupo/produto com mais histórico ou aguarde a coleta de mais dados'
                 });
             }
             
@@ -140,26 +171,39 @@ class PredictiveAnalysisController {
     }
 
     /**
-     * Obtém métricas detalhadas para um produto
+     * Obtém métricas detalhadas para análise preditiva
      * @param {Object} req - Requisição HTTP
      * @param {Object} res - Resposta HTTP
      */
     async getDetailedMetrics(req, res) {
         try {
-            const { productId, startDate, endDate } = req.query;
+            const { productId, groupId, startDate, endDate } = req.query;
+            
+            // Prioriza groupId, mas mantém compatibilidade com productId
+            const idParam = groupId || productId;
 
-            if (!productId) {
+            if (!idParam) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Parâmetro productId é obrigatório'
+                    error: 'Parâmetro groupId ou productId é obrigatório'
                 });
             }
 
-            const metrics = await this.predictiveService.getMetrics(productId, startDate, endDate);
-            return res.status(200).json({
-                success: true,
-                data: metrics
-            });
+            // Se for groupId, usa o método apropriado
+            if (groupId) {
+                const metrics = await this.predictiveService.getGroupMetrics(groupId, startDate, endDate);
+                return res.status(200).json({
+                    success: true,
+                    data: metrics
+                });
+            } else {
+                // Mantém compatibilidade com productId
+                const metrics = await this.predictiveService.getMetrics(productId, startDate, endDate);
+                return res.status(200).json({
+                    success: true,
+                    data: metrics
+                });
+            }
         } catch (error) {
             console.error('Erro ao obter métricas:', error);
             
@@ -169,7 +213,7 @@ class PredictiveAnalysisController {
                     success: false,
                     error: 'Dados insuficientes para calcular métricas',
                     details: error.message,
-                    suggestion: 'Tente outro produto com mais histórico ou aguarde a coleta de mais dados'
+                    suggestion: 'Tente outro grupo/produto com mais histórico ou aguarde a coleta de mais dados'
                 });
             }
             
@@ -283,6 +327,81 @@ class PredictiveAnalysisController {
     }
 
     /**
+     * Obtém notificações de um grupo
+     * @param {Object} req - Request do Express
+     * @param {Object} res - Response do Express
+     */
+    async getNotifications(req, res) {
+        try {
+            const { groupId = 'ALL', unreadOnly = false, limit = 50, offset = 0 } = req.query;
+            
+            const NotificationRepository = require('../repositories/NotificationRepository');
+            const notificationRepo = new NotificationRepository();
+            
+            const notifications = await notificationRepo.getNotifications(groupId, {
+                unreadOnly: unreadOnly === 'true',
+                limit: parseInt(limit),
+                offset: parseInt(offset)
+            });
+            
+            // Formatar notificações para o frontend
+            const formattedNotifications = notifications.map(notification => ({
+                id: notification.id,
+                title: this._getNotificationTitle(notification.type, notification.severity),
+                description: notification.message,
+                date: notification.created_at,
+                read: !!notification.read_at,
+                type: notification.type,
+                severity: notification.severity,
+                groupId: notification.group_id
+            }));
+            
+            return res.status(200).json({
+                success: true,
+                data: formattedNotifications
+            });
+        } catch (error) {
+            console.error('Erro ao obter notificações:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao obter notificações',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Marca todas as notificações de um grupo como lidas
+     * @param {Object} req - Request do Express
+     * @param {Object} res - Response do Express
+     */
+    async markAllNotificationsAsRead(req, res) {
+        try {
+            const { groupId = 'ALL' } = req.query;
+            
+            const NotificationRepository = require('../repositories/NotificationRepository');
+            const notificationRepo = new NotificationRepository();
+            
+            const updatedCount = await notificationRepo.markAllAsRead(groupId);
+            
+            return res.status(200).json({
+                success: true,
+                data: {
+                    updatedCount,
+                    message: `${updatedCount} notificações marcadas como lidas`
+                }
+            });
+        } catch (error) {
+            console.error('Erro ao marcar todas notificações como lidas:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao marcar notificações como lidas',
+                details: error.message
+            });
+        }
+    }
+
+    /**
      * Marca uma notificação como lida
      * @param {Object} req - Request do Express
      * @param {Object} res - Response do Express
@@ -298,26 +417,64 @@ class PredictiveAnalysisController {
                 });
             }
             
-            const result = await this.predictiveService.markNotificationAsRead(notificationId);
+            const NotificationRepository = require('../repositories/NotificationRepository');
+            const notificationRepo = new NotificationRepository();
+            
+            const result = await notificationRepo.markNotificationAsRead(notificationId);
+            
+            if (!result.updated) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Notificação não encontrada'
+                });
+            }
+            
             return res.status(200).json({
                 success: true,
                 data: result
             });
         } catch (error) {
             console.error('Erro ao marcar notificação como lida:', error);
-            
-            if (error.message.includes('não encontrada')) {
-                return res.status(404).json({ 
-                    success: false,
-                    error: error.message 
-                });
-            } else {
-                return res.status(500).json({ 
-                    success: false,
-                    error: error.message 
-                });
-            }
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao marcar notificação como lida',
+                details: error.message
+            });
         }
+    }
+
+    /**
+     * Gera título da notificação baseado no tipo e severidade
+     * @param {string} type - Tipo da notificação
+     * @param {string} severity - Severidade da notificação
+     * @returns {string} Título formatado
+     * @private
+     */
+    _getNotificationTitle(type, severity) {
+        const titles = {
+            'anomaly': {
+                'alta': 'Anomalia Crítica Detectada',
+                'média': 'Anomalia Detectada',
+                'baixa': 'Variação Detectada'
+            },
+            'prediction_warning': {
+                'alta': 'Previsão com Baixa Confiança',
+                'média': 'Alerta de Previsão',
+                'baixa': 'Aviso de Previsão'
+            },
+            'recommendation': {
+                'alta': 'Recomendação Crítica',
+                'média': 'Nova Recomendação',
+                'baixa': 'Sugestão Disponível'
+            },
+            'system': {
+                'alta': 'Alerta do Sistema',
+                'média': 'Aviso do Sistema',
+                'baixa': 'Informação do Sistema'
+            }
+        };
+        
+        return titles[type]?.[severity] || 'Nova Notificação';
     }
 
     /**
@@ -752,6 +909,335 @@ class PredictiveAnalysisController {
     calculateMean(data) {
         if (data.length === 0) return 0;
         return data.reduce((sum, val) => sum + val, 0) / data.length;
+    }
+
+    // ===================== MÉTODOS PARA GRUPOS =====================
+
+    /**
+     * Obtém previsão de volume para um grupo em uma data específica
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async getGroupPredictedVolume(req, res) {
+        try {
+            const { date, groupId } = req.query;
+
+            if (!date || !groupId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetros date e groupId são obrigatórios'
+                });
+            }
+
+            const prediction = await this.predictiveService.predictVolumeByGroup(date, groupId);
+            return res.status(200).json({
+                success: true,
+                data: prediction
+            });
+        } catch (error) {
+            console.error('Erro ao obter previsão de volume por grupo:', error);
+            
+            if (error.message && error.message.includes('Dados históricos insuficientes')) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Erro ao obter previsão de volume por grupo',
+                    details: error.message,
+                    suggestion: 'Tente outro grupo ou adicione mais dados históricos'
+                });
+            }
+            
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao obter previsão de volume por grupo',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Detecta anomalias nos dados históricos de um grupo
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async detectGroupAnomalies(req, res) {
+        try {
+            const { groupId, startDate, endDate, severity, limit } = req.query;
+
+            if (!groupId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro groupId é obrigatório'
+                });
+            }
+
+            console.log(`Detectando anomalias para grupo: groupId=${groupId}, startDate=${startDate}, endDate=${endDate}, severity=${severity}, limit=${limit}`);
+
+            const anomalies = await this.predictiveService.detectGroupAnomalies(groupId, startDate, endDate, severity, limit);
+            return res.status(200).json({
+                success: true,
+                data: anomalies
+            });
+        } catch (error) {
+            console.error('Erro ao detectar anomalias por grupo:', error);
+            
+            if (error.message && error.message.includes('Dados históricos insuficientes')) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Dados insuficientes para análise de anomalias por grupo',
+                    details: error.message,
+                    suggestion: 'Tente outro grupo com mais histórico ou aguarde a coleta de mais dados'
+                });
+            }
+            
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao detectar anomalias por grupo',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Gera recomendações baseadas nas análises de um grupo
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async getGroupRecommendations(req, res) {
+        try {
+            const { groupId } = req.query;
+
+            if (!groupId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro groupId é obrigatório'
+                });
+            }
+
+            const recommendations = await this.predictiveService.generateGroupRecommendations(groupId);
+            return res.status(200).json({
+                success: true,
+                data: recommendations
+            });
+        } catch (error) {
+            console.error('Erro ao gerar recomendações por grupo:', error);
+            
+            if (error.message && error.message.includes('Dados históricos insuficientes')) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Dados insuficientes para gerar recomendações por grupo',
+                    details: error.message,
+                    suggestion: 'Tente outro grupo com mais histórico ou aguarde a coleta de mais dados'
+                });
+            }
+            
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao gerar recomendações por grupo',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Obtém métricas detalhadas para um grupo
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async getGroupDetailedMetrics(req, res) {
+        try {
+            const { groupId, startDate, endDate } = req.query;
+
+            if (!groupId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro groupId é obrigatório'
+                });
+            }
+
+            const metrics = await this.predictiveService.getGroupMetrics(groupId, startDate, endDate);
+            return res.status(200).json({
+                success: true,
+                data: metrics
+            });
+        } catch (error) {
+            console.error('Erro ao obter métricas por grupo:', error);
+            
+            if (error.message && error.message.includes('Dados históricos insuficientes')) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Dados insuficientes para calcular métricas por grupo',
+                    details: error.message,
+                    suggestion: 'Tente outro grupo com mais histórico ou aguarde a coleta de mais dados'
+                });
+            }
+            
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao obter métricas por grupo',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Obtém análise de volume para um grupo
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async getGroupVolumeAnalysis(req, res) {
+        try {
+            const { groupId, targetDate, monthsBack, daysForward } = req.query;
+
+            if (!groupId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro groupId é obrigatório'
+                });
+            }
+
+            const date = targetDate || new Date().toISOString().split('T')[0];
+            const months = parseInt(monthsBack) || 3;
+            const days = parseInt(daysForward) || 7;
+
+            console.log(`Obtendo análise de volume para grupo: ${groupId}, data: ${date}, meses: ${months}, dias: ${days}`);
+
+            // Obter histórico de volumes
+            const volumeHistory = await this.predictiveService.getGroupVolumeHistory(groupId, date, months);
+            // Obter previsões futuras
+            const predictions = await this.predictiveService.getGroupPredictions(groupId, date, days);
+
+            // Calcular previsões retroativas para dados históricos (igual ao endpoint de produto)
+            const calcularPrevisaoRetroativa = (dados, indice) => {
+                if (indice < 7) return {
+                    volume: dados[indice].volume,
+                    confidence: 0.5 // Confiança média para poucos dados
+                };
+                const dadosAnteriores = dados.slice(Math.max(0, indice - 7), indice);
+                const mediaMovel = dadosAnteriores.reduce((sum, item) => sum + item.volume, 0) / dadosAnteriores.length;
+                const trend = this.calculateSimpleTrend(dadosAnteriores);
+                const volumes = dadosAnteriores.map(d => d.volume);
+                const variancia = this.calculateVariance(volumes);
+                const coefVariacao = Math.sqrt(variancia) / mediaMovel;
+                const confidence = Math.max(0.3, Math.min(0.9, 1 - coefVariacao));
+                return {
+                    volume: Math.round(mediaMovel * (1 + trend)),
+                    confidence: parseFloat(confidence.toFixed(2))
+                };
+            };
+
+            // Formatar dados históricos com previsão retroativa
+            const historicalDataArray = [...volumeHistory];
+            const formattedHistorical = historicalDataArray.map((h, index) => {
+                const previsao = calcularPrevisaoRetroativa(historicalDataArray, index);
+                return {
+                    group_id: h.group_id,
+                    date: h.date.split('T')[0],
+                    volume: Number(h.volume),
+                    predictedVolume: Number(previsao.volume),
+                    confidence: previsao.confidence
+                };
+            });
+
+            // Formatar previsões no formato desejado
+            const formattedPredictions = Array.isArray(predictions) ? predictions.map(p => ({
+                date: p.date.split('T')[0],
+                predictedVolume: Number(p.predictedVolume || 0),
+                confidence: Number(p.confidence) / 100
+            })) : [];
+
+            // Calcular tendência com base nos volumes históricos
+            const volumes = formattedHistorical.map(h => h.volume);
+            const lastIndex = volumes.length - 1;
+            const trend = lastIndex > 0 
+                ? (volumes[lastIndex] - volumes[0]) / volumes[0]
+                : 0;
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    historical: formattedHistorical,
+                    predictions: formattedPredictions,
+                    metadata: {
+                        trend: Number(trend.toFixed(2)),
+                        calculatedAt: new Date().toISOString(),
+                        dataQuality: volumeHistory.length >= 3 ? 'high' : 'low',
+                        isAggregate: groupId === 'ALL'
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Erro ao obter análise de volume por grupo:', error);
+            if (error.message && error.message.includes('Nenhum dado histórico encontrado')) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Nenhum dado histórico encontrado para este grupo',
+                    details: error.message,
+                    suggestion: 'Verifique se o groupId está correto ou se há dados para o período especificado'
+                });
+            }
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao obter análise de volume por grupo',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Obtém múltiplas previsões de volume para um grupo com diferentes algoritmos
+     * @param {Object} req - Requisição HTTP
+     * @param {Object} res - Resposta HTTP
+     */
+    async getGroupPredictions(req, res) {
+        try {
+            const { groupId, targetDate, daysForward } = req.query;
+
+            if (!groupId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro groupId é obrigatório'
+                });
+            }
+
+            const date = targetDate || new Date().toISOString().split('T')[0];
+            const days = parseInt(daysForward) || 7;
+
+            console.log(`Gerando previsões para grupo: ${groupId}, data: ${date}, dias: ${days}`);
+
+            const predictions = await this.predictiveService.getGroupPredictions(groupId, date, days);
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    groupId,
+                    targetDate: date,
+                    daysForward: days,
+                    predictions,
+                    metadata: {
+                        algorithm: 'ensemble',
+                        predictionsCount: predictions.length,
+                        generatedAt: new Date().toISOString()
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Erro ao gerar previsões para grupo:', error);
+
+            if (error.message && error.message.includes('Nenhum dado histórico encontrado')) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Nenhum dado histórico encontrado para este grupo',
+                    details: error.message,
+                    suggestion: 'Verifique se o groupId está correto ou se há dados históricos suficientes'
+                });
+            }
+            
+            return res.status(500).json({
+                success: false,
+                error: 'Erro ao gerar previsões para grupo',
+                details: error.message
+            });
+        }
     }
 }
 

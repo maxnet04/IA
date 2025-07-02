@@ -4,8 +4,7 @@ import App from './App';
 import './styles/responsive.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-); 
+
+// Removido React.StrictMode temporariamente para evitar chamadas duplicadas de useEffect
+// Em produção, o StrictMode não afeta o comportamento, apenas em desenvolvimento
+root.render(<App />); 

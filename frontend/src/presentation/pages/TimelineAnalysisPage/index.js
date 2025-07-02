@@ -185,6 +185,9 @@ const TimelineAnalysisPage = () => {
     // Estados para controlar o setor ativo nos gráficos de pizza
     const [activeIndexAction, setActiveIndexAction] = useState(0);
     const [activeIndexGroup, setActiveIndexGroup] = useState(0);
+    
+    // Estado para controlar quando os dados devem ser carregados
+    const [shouldLoadData, setShouldLoadData] = useState(false);
 
     const {
         timelineData,
@@ -206,6 +209,10 @@ const TimelineAnalysisPage = () => {
 
     // Função de busca - somente será chamada ao clicar no botão
     const handleSearch = async (filters = { period: '7d' }) => {
+        console.log('🔍 [DEBUG TIMELINE] handleSearch chamado');
+        console.log('🔍 [DEBUG TIMELINE] Filtros:', filters);
+        console.log('🔍 [DEBUG TIMELINE] hasSearched antes:', hasSearched);
+        
         setLoading(true);
         setError(null);
         setHasSearched(true);
@@ -217,8 +224,9 @@ const TimelineAnalysisPage = () => {
                 setEndDate(new Date());
             }
 
+            console.log('🔍 [DEBUG TIMELINE] Chamando incidentService.getTimelineAnalysis...');
             const response = await incidentService.getTimelineAnalysis(filters.period || '7d');
-            console.log('Dados recebidos da API:', response);
+            console.log('🔍 [DEBUG TIMELINE] Dados recebidos da API:', response);
             
             // Processa dados da timeline (dados diários)
             if (response.dailyData && response.dailyData.length > 0) {
@@ -261,12 +269,26 @@ const TimelineAnalysisPage = () => {
         }
     };
 
-    // Efeito para carregar os dados iniciais
+    // Efeito para carregar os dados iniciais apenas uma vez
     useEffect(() => {
-        if (!hasSearched) {
-            handleSearch({ period: '7d' });
+        console.log('🔍 [DEBUG TIMELINE] useEffect inicial disparado');
+        console.log('🔍 [DEBUG TIMELINE] hasSearched:', hasSearched);
+        console.log('🔍 [DEBUG TIMELINE] shouldLoadData:', shouldLoadData);
+        
+        if (!hasSearched && !shouldLoadData) {
+            console.log('🔍 [DEBUG TIMELINE] Definindo shouldLoadData para true');
+            setShouldLoadData(true);
         }
     }, []);
+    
+    // Efeito para carregar dados quando shouldLoadData muda para true
+    useEffect(() => {
+        if (shouldLoadData && !hasSearched) {
+            console.log('🔍 [DEBUG TIMELINE] Chamando handleSearch inicial...');
+            handleSearch({ period: '7d' });
+            setShouldLoadData(false); // Reset para evitar chamadas futuras
+        }
+    }, [shouldLoadData, hasSearched]);
 
     // Renderiza gráfico de linha de incidentes
     const renderTimelineChart = () => {

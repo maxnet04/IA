@@ -16,7 +16,7 @@ class NotificationRepository extends BaseRepository {
             `
             CREATE TABLE IF NOT EXISTS notifications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                product_id TEXT NOT NULL,
+                group_id TEXT NOT NULL,
                 message TEXT NOT NULL,
                 type TEXT NOT NULL,
                 severity TEXT NOT NULL,
@@ -24,7 +24,7 @@ class NotificationRepository extends BaseRepository {
                 related_id TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 read_at DATETIME,
-                UNIQUE(product_id, message, created_at)
+                UNIQUE(group_id, message, created_at)
             )
             `
         );
@@ -38,14 +38,14 @@ class NotificationRepository extends BaseRepository {
     async createNotification(notification) {
         const query = `
             INSERT INTO notifications 
-            (product_id, message, type, severity, related_entity, related_id)
+            (group_id, message, type, severity, related_entity, related_id)
             VALUES (?, ?, ?, ?, ?, ?)
         `;
         
         const result = await this.execute(
             query,
             [
-                notification.product_id,
+                notification.group_id,
                 notification.message,
                 notification.type,
                 notification.severity,
@@ -74,28 +74,28 @@ class NotificationRepository extends BaseRepository {
     }
 
     /**
-     * Marca todas as notificações de um produto como lidas
-     * @param {string} productId ID do produto
+     * Marca todas as notificações de um grupo como lidas
+     * @param {string} groupId ID do grupo
      * @returns {Promise<number>} Número de notificações atualizadas
      */
-    async markAllAsRead(productId) {
+    async markAllAsRead(groupId) {
         const query = `
             UPDATE notifications
             SET read_at = CURRENT_TIMESTAMP
-            WHERE product_id = ? AND read_at IS NULL
+            WHERE group_id = ? AND read_at IS NULL
         `;
         
-        const result = await this.execute(query, [productId]);
+        const result = await this.execute(query, [groupId]);
         return result.changes;
     }
 
     /**
-     * Busca todas as notificações de um produto
-     * @param {string} productId ID do produto
+     * Busca todas as notificações de um grupo
+     * @param {string} groupId ID do grupo
      * @param {Object} options Opções de filtragem
      * @returns {Promise<Array>} Lista de notificações
      */
-    async getNotifications(productId, options = {}) {
+    async getNotifications(groupId, options = {}) {
         const { 
             unreadOnly = false, 
             limit = 50, 
@@ -107,10 +107,10 @@ class NotificationRepository extends BaseRepository {
         let query = `
             SELECT *
             FROM notifications
-            WHERE product_id = ?
+            WHERE group_id = ?
         `;
         
-        const params = [productId];
+        const params = [groupId];
         
         if (unreadOnly) {
             query += ' AND read_at IS NULL';
@@ -134,17 +134,17 @@ class NotificationRepository extends BaseRepository {
 
     /**
      * Obtém contagem de notificações não lidas
-     * @param {string} productId ID do produto
+     * @param {string} groupId ID do grupo
      * @returns {Promise<number>} Número de notificações não lidas
      */
-    async getUnreadCount(productId) {
+    async getUnreadCount(groupId) {
         const query = `
             SELECT COUNT(*) as count
             FROM notifications
-            WHERE product_id = ? AND read_at IS NULL
+            WHERE group_id = ? AND read_at IS NULL
         `;
         
-        const result = await this.queryOne(query, [productId]);
+        const result = await this.queryOne(query, [groupId]);
         return result.count;
     }
 
@@ -205,21 +205,21 @@ class NotificationRepository extends BaseRepository {
     }
 
     /**
-     * Busca as últimas notificações de todos os produtos
-     * @param {number} limit Limite de notificações por produto
-     * @returns {Promise<Array>} Lista de notificações agrupadas por produto
+     * Busca as últimas notificações de todos os grupos
+     * @param {number} limit Limite de notificações por grupo
+     * @returns {Promise<Array>} Lista de notificações agrupadas por grupo
      */
     async getLatestNotifications(limit = 5) {
         const query = `
             SELECT *
             FROM notifications
-            WHERE product_id IN (
-                SELECT DISTINCT product_id FROM notifications
+            WHERE group_id IN (
+                SELECT DISTINCT group_id FROM notifications
             )
-            AND (product_id, created_at) IN (
-                SELECT product_id, MAX(created_at)
+            AND (group_id, created_at) IN (
+                SELECT group_id, MAX(created_at)
                 FROM notifications
-                GROUP BY product_id
+                GROUP BY group_id
             )
             ORDER BY created_at DESC
             LIMIT ?

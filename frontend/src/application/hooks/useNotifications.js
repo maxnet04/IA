@@ -3,9 +3,10 @@ import notificationService from '../../infrastructure/api/notificationService';
 
 /**
  * Hook personalizado para gerenciar notificações
+ * @param {string} groupId - ID do grupo (opcional, padrão: 'ALL')
  * @returns {Object} Estado e funções para notificações
  */
-const useNotifications = (productId) => {
+const useNotifications = (groupId = 'ALL') => {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -15,7 +16,7 @@ const useNotifications = (productId) => {
         try {
             setLoading(true);
             setError(null);
-            const data = await notificationService.getNotifications(productId);
+            const data = await notificationService.getNotifications(groupId);
             setNotifications(data);
             setUnreadCount(data.filter(n => !n.read).length);
         } catch (err) {
@@ -24,7 +25,7 @@ const useNotifications = (productId) => {
         } finally {
             setLoading(false);
         }
-    }, [productId]);
+    }, [groupId]);
 
     useEffect(() => {
         loadNotifications();
@@ -52,14 +53,14 @@ const useNotifications = (productId) => {
      */
     const markAllAsRead = useCallback(async () => {
         try {
-            await notificationService.markAllAsRead(productId);
+            await notificationService.markAllAsRead(groupId);
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
             setUnreadCount(0);
         } catch (err) {
             console.error('Erro ao marcar todas notificações como lidas:', err);
             throw err;
         }
-    }, [productId]);
+    }, [groupId]);
 
     return {
         notifications,

@@ -16,7 +16,7 @@ router.use(authMiddleware);
  * @swagger
  * /api/predictive/volume:
  *   get:
- *     summary: Obtém previsão de volume para um produto
+ *     summary: Obtém previsão de volume para um grupo ou produto
  *     tags: [Análise Preditiva]
  *     security:
  *       - bearerAuth: []
@@ -28,11 +28,17 @@ router.use(authMiddleware);
  *         required: true
  *         description: Data para previsão (formato YYYY-MM-DD)
  *       - in: query
+ *         name: groupId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: ID do grupo (priorizado se fornecido)
+ *       - in: query
  *         name: productId
  *         schema:
  *           type: string
- *         required: true
- *         description: ID do produto
+ *         required: false
+ *         description: ID do produto (usado se groupId não for fornecido)
  *     responses:
  *       200:
  *         description: Análise de volume bem-sucedida
@@ -130,11 +136,11 @@ router.get('/volume', controller.getPredictedVolume.bind(controller));
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: productId
+ *         name: groupId
  *         schema:
  *           type: string
  *         required: true
- *         description: ID do produto
+ *         description: ID do grupo ou ALL para todos
  *       - in: query
  *         name: startDate
  *         schema:
@@ -253,11 +259,11 @@ router.get('/anomalies', controller.detectAnomalies.bind(controller));
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: productId
+ *         name: groupId
  *         schema:
  *           type: string
  *         required: true
- *         description: ID do produto ou ALL para todos
+ *         description: ID do grupo ou ALL para todos
  *       - in: query
  *         name: date
  *         schema:
@@ -288,17 +294,23 @@ router.get('/recommendations', predictiveController.getRecommendations.bind(pred
  * @swagger
  * /api/predictive/metrics:
  *   get:
- *     summary: Obtém métricas detalhadas para um produto
+ *     summary: Obtém métricas detalhadas para um grupo ou produto
  *     tags: [Análise Preditiva]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
+ *         name: groupId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: ID do grupo (priorizado se fornecido)
+ *       - in: query
  *         name: productId
  *         schema:
  *           type: string
- *         required: true
- *         description: ID do produto
+ *         required: false
+ *         description: ID do produto (usado se groupId não for fornecido)
  *       - in: query
  *         name: startDate
  *         schema:
@@ -526,6 +538,9 @@ router.get('/history', controller.getPredictionHistory.bind(controller));
  *       500:
  *         description: Erro interno do servidor
  */
+// Rotas de notificações
+router.get('/notifications', controller.getNotifications.bind(controller));
+router.put('/notifications/mark-all-read', controller.markAllNotificationsAsRead.bind(controller));
 router.put('/notifications/:notificationId/read', controller.markNotificationAsRead.bind(controller));
 
 /**
@@ -703,17 +718,17 @@ router.get('/seasonality', predictiveController.getSeasonality.bind(predictiveCo
  * @swagger
  * /api/predictive/influence-factors:
  *   get:
- *     summary: Fatores de influência para um produto
+ *     summary: Fatores de influência para um grupo
  *     tags: [Predictive]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: productId
+ *         name: groupId
  *         schema:
  *           type: string
  *         required: true
- *         description: ID do produto ou ALL para todos
+ *         description: ID do grupo ou ALL para todos
  *       - in: query
  *         name: startDate
  *         schema:
@@ -772,5 +787,48 @@ router.get('/influence-factors', predictiveController.getInfluenceFactors.bind(p
  *         description: Erro interno
  */
 router.get('/period-comparison', predictiveController.getPeriodComparison.bind(predictiveController));
+
+/**
+ * @swagger
+ * /api/predictive/volume-analysis-group:
+ *   get:
+ *     summary: Obtém análise de volume para um grupo
+ *     tags: [Análise Preditiva]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: groupId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID do grupo ou ALL para todos
+ *       - in: query
+ *         name: targetDate
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Data base para análise (YYYY-MM-DD)
+ *       - in: query
+ *         name: monthsBack
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: Meses para trás
+ *       - in: query
+ *         name: monthsForward
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: Meses para frente (opcional)
+ *     responses:
+ *       200:
+ *         description: Análise de volume por grupo obtida com sucesso
+ *       400:
+ *         description: Parâmetros inválidos
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/volume-analysis-group', controller.getGroupVolumeAnalysis.bind(controller));
 
 module.exports = router; 

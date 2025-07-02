@@ -49,6 +49,9 @@ const incidentService = {
      * @returns {Promise} Dados de análise temporal
      */
     async getTimelineAnalysis(startDate, endDate = null, group = '') {
+        console.log('🔍 [DEBUG TIMELINE] getTimelineAnalysis chamado');
+        console.log('🔍 [DEBUG TIMELINE] Parâmetros:', { startDate, endDate, group });
+        
         try {
             // URL para análise temporal
             let url = '/incidents/analysis/timeline';
@@ -74,9 +77,9 @@ const incidentService = {
                 params = {};
             }
 
-            console.log(`Fazendo requisição para ${url} com parâmetros:`, params);
+            console.log('🔍 [DEBUG TIMELINE] Fazendo requisição para:', url, 'com parâmetros:', params);
             const response = await api.get(url, { params });
-            console.log(`Resposta da API para ${url}:`, response.data);
+            console.log('🔍 [DEBUG TIMELINE] Resposta da API recebida:', response.data);
             
             // Se a resposta tiver um campo 'data', retorna o conteúdo desse campo
             if (response.data && response.data.data) {

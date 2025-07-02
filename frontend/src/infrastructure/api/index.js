@@ -1,4 +1,9 @@
 import axios from 'axios';
+import groupService from './groupService';
+import predictiveService from './predictiveService';
+import incidentService from './incidentService';
+import authService from './authService';
+import notificationService from './notificationService';
 
 const api = axios.create({
     baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001',
@@ -27,5 +32,14 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+// Exportar serviços individuais
+export {
+    groupService,
+    predictiveService,
+    incidentService,
+    authService,
+    notificationService
+};
 
 export default api; 

@@ -2,15 +2,53 @@ import api from './axiosConfig';
 
 const notificationService = {
     /**
-     * Obtém notificações de anomalias críticas
-     * @param {string} productId - ID do produto (opcional)
+     * Obtém notificações de um grupo
+     * @param {string} groupId - ID do grupo (opcional, padrão: 'ALL')
+     * @param {Object} options - Opções de filtro
      * @returns {Promise} Lista de notificações
      */
-    async getCriticalAnomalies(productId) {
+    async getNotifications(groupId = 'ALL', options = {}) {
+        try {
+            const response = await api.get('/predictive/notifications', {
+                params: { 
+                    groupId,
+                    ...options
+                }
+            });
+            return response.data.data || response.data;
+        } catch (error) {
+            console.error('Erro ao obter notificações:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Marca todas as notificações de um grupo como lidas
+     * @param {string} groupId - ID do grupo
+     * @returns {Promise} Resultado da operação
+     */
+    async markAllAsRead(groupId = 'ALL') {
+        try {
+            const response = await api.put('/predictive/notifications/mark-all-read', null, {
+                params: { groupId }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Erro ao marcar todas notificações como lidas:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Obtém notificações de anomalias críticas
+     * @param {string} groupId - ID do grupo (opcional)
+     * @returns {Promise} Lista de notificações
+     */
+    async getCriticalAnomalies(groupId) {
         try {
             const response = await api.get('/predictive/anomalies', {
                 params: { 
-                    productId, 
+                    groupId, 
                     severity: 'alta',
                     limit: 5
                 }

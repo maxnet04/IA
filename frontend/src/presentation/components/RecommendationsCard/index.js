@@ -7,22 +7,19 @@ import RecommendationIcon from '@mui/icons-material/Lightbulb';
 import ErrorIcon from '@mui/icons-material/Error';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import CalendarIcon from '@mui/icons-material/CalendarToday';
-import useRecommendations from '../../../application/hooks/useRecommendations';
+import predictiveService from '../../../infrastructure/api/predictiveService';
 import { styles } from './styles';
 
-const RecommendationsCard = ({ productId, date, onError, variant = 'default', borderColor = '#03a9f4' }) => {
-  const [showFilters, setShowFilters] = useState(false);
+const RecommendationsCard = ({ groupId, date, onError, variant = 'default', borderColor = '#03a9f4', recommendations: externalRecommendations }) => {
+  console.log('🔍 [DEBUG] RecommendationsCard renderizado');
+  console.log('🔍 [DEBUG] Props recebidas - groupId:', groupId, 'date:', date);
   
-  const { 
-    recommendations, 
-    loading, 
-    error, 
-    category,
-    limit,
-    filterByCategory,
-    changeLimit,
-    refreshRecommendations
-  } = useRecommendations(productId, date);
+  const [showFilters, setShowFilters] = useState(false);
+  const [recommendations, setRecommendations] = useState(externalRecommendations || []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  
+  console.log('🔍 [DEBUG] Estado atual - loading:', loading, 'recommendations:', recommendations.length);
 
   // Notifica o componente pai sobre erros
   React.useEffect(() => {
@@ -30,6 +27,49 @@ const RecommendationsCard = ({ productId, date, onError, variant = 'default', bo
       onError(error);
     }
   }, [error, onError]);
+
+  // Função para carregar recomendações usando o endpoint correto
+  const loadRecommendations = React.useCallback(async (groupId, date) => {
+    if (!groupId || !date) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🔍 [DEBUG] Chamando predictiveService.getRecommendations:', { groupId, date });
+      const response = await predictiveService.getRecommendations(groupId, date, null, 10);
+      
+      if (response.success && response.data?.data?.recommendations) {
+        console.log('🔍 [DEBUG] Recomendações recebidas:', response.data.data.recommendations);
+        setRecommendations(response.data.data.recommendations);
+      } else {
+        console.log('🔍 [DEBUG] Nenhuma recomendação encontrada na resposta:', response);
+        setRecommendations([]);
+      }
+    } catch (err) {
+      console.error('🔍 [DEBUG] Erro ao carregar recomendações:', err);
+      setError(err.message || 'Erro ao carregar recomendações');
+      setRecommendations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Carrega recomendações automaticamente quando groupId ou date muda
+  React.useEffect(() => {
+    console.log('🔍 [DEBUG] useEffect para carregar recomendações - groupId:', groupId, 'date:', date);
+    if (groupId && date && !externalRecommendations) {
+      console.log('🔍 [DEBUG] Carregando recomendações para groupId:', groupId, 'date:', date);
+      loadRecommendations(groupId, date);
+    }
+  }, [groupId, date, externalRecommendations, loadRecommendations]);
+
+  // Atualiza recomendações quando externalRecommendations muda
+  React.useEffect(() => {
+    if (externalRecommendations) {
+      setRecommendations(externalRecommendations);
+    }
+  }, [externalRecommendations]);
 
   const categoryColors = {
     'Capacidade': '#1976d2',
@@ -71,11 +111,11 @@ const RecommendationsCard = ({ productId, date, onError, variant = 'default', bo
   };
 
   const handleCategoryChange = (e) => {
-    filterByCategory(e.target.value);
+    // Filtro por categoria removido - agora usa dados diretos do grupo
   };
 
   const handleLimitChange = (e) => {
-    changeLimit(e.target.value);
+    // Limite removido - agora usa dados diretos do grupo
   };
 
   // Obter as duas recomendações mais impactantes
@@ -136,7 +176,7 @@ const RecommendationsCard = ({ productId, date, onError, variant = 'default', bo
                 variant="outlined" 
                 color="primary" 
                 size="small" 
-                onClick={refreshRecommendations}
+                onClick={() => groupId && date && loadRecommendations(groupId, date)}
                 sx={styles.retryButton}
               >
                 Tentar Novamente
@@ -197,31 +237,74 @@ const RecommendationsCard = ({ productId, date, onError, variant = 'default', bo
                       </Box>
                     </Box>
                     <Typography variant="body1" sx={{ 
-                      mb: 1,
+                      mb: 1.5,
                       color: 'text.primary',
-                      fontSize: '1rem',
+                      fontSize: '0.95rem',
                       lineHeight: 1.4
                     }}>
                       {recommendation.description}
                     </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, mt: 2.50, mb: 1.25 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <CalendarIcon sx={{ fontSize: 14, color: 'action.active', opacity: 0.7 }} />
+                    
+                    {/* Categoria */}
+                    {recommendation.category && (
+                      <Box sx={{ mb: 1.5 }}>
+                        <Chip 
+                          label={recommendation.category}
+                          size="small"
+                          sx={{
+                            backgroundColor: categoryColors[recommendation.category] || categoryColors.default,
+                            color: 'white',
+                            fontSize: '0.75rem',
+                            fontWeight: 600
+                          }}
+                        />
+                      </Box>
+                    )}
+
+                    {/* Evidências de suporte */}
+                    {recommendation.supportingEvidence && recommendation.supportingEvidence.length > 0 && (
+                      <Box sx={{ mb: 1.5 }}>
                         <Typography variant="caption" sx={{ 
                           color: 'text.secondary',
                           fontWeight: 600,
-                          fontSize: '0.875rem'
+                          fontSize: '0.8rem',
+                          display: 'block',
+                          mb: 0.5
                         }}>
-                          Data: {new Date().toLocaleDateString('pt-BR')}
+                          Evidências:
+                        </Typography>
+                        {recommendation.supportingEvidence.slice(0, 2).map((evidence, evidenceIndex) => (
+                          <Typography key={evidenceIndex} variant="caption" sx={{ 
+                            color: 'text.secondary',
+                            fontSize: '0.75rem',
+                            display: 'block',
+                            ml: 1,
+                            mb: 0.2
+                          }}>
+                            • {evidence.description}
+                          </Typography>
+                        ))}
+                      </Box>
+                    )}
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mt: 'auto' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <CalendarIcon sx={{ fontSize: 12, color: 'action.active', opacity: 0.7 }} />
+                        <Typography variant="caption" sx={{ 
+                          color: 'text.secondary',
+                          fontWeight: 500,
+                          fontSize: '0.75rem'
+                        }}>
+                          {date ? new Date(date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}
                         </Typography>
                       </Box>
                       {recommendation.impactPercentage && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <InfoIcon sx={{ fontSize: 14, color: 'action.active', opacity: 0.7 }} />
+                          <InfoIcon sx={{ fontSize: 12, color: 'action.active', opacity: 0.7 }} />
                           <Typography variant="caption" sx={{ 
                             color: 'text.secondary',
-                            fontWeight: 600,
-                            fontSize: '0.875rem'
+                            fontWeight: 500,
+                            fontSize: '0.75rem'
                           }}>
                             Impacto: {recommendation.impactPercentage.toFixed(1)}%
                           </Typography>
@@ -261,7 +344,7 @@ const RecommendationsCard = ({ productId, date, onError, variant = 'default', bo
               <InputLabel id="category-select-label">Categoria</InputLabel>
               <Select
                 labelId="category-select-label"
-                value={category}
+                value=""
                 onChange={handleCategoryChange}
                 label="Categoria"
               >
@@ -280,7 +363,7 @@ const RecommendationsCard = ({ productId, date, onError, variant = 'default', bo
               <InputLabel id="limit-select-label">Quantidade</InputLabel>
               <Select
                 labelId="limit-select-label"
-                value={limit}
+                value={3}
                 onChange={handleLimitChange}
                 label="Quantidade"
               >
@@ -308,7 +391,7 @@ const RecommendationsCard = ({ productId, date, onError, variant = 'default', bo
               variant="outlined" 
               color="primary" 
               size="small" 
-              onClick={refreshRecommendations}
+              onClick={() => groupId && date && loadRecommendations(groupId, date)}
               sx={styles.retryButton}
             >
               Tentar Novamente

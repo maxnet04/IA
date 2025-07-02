@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import incidentService from '../../infrastructure/api/incidentService';
 
 /**
@@ -6,11 +6,17 @@ import incidentService from '../../infrastructure/api/incidentService';
  * @returns {Object} Estado e funções para análise temporal
  */
 const useTimelineAnalysis = () => {
+    console.log('🔍 [DEBUG TIMELINE] useTimelineAnalysis hook inicializado');
+    
     const [timelineData, setTimelineData] = useState([]);
     const [distributionByAction, setDistributionByAction] = useState([]);
     const [distributionByGroup, setDistributionByGroup] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    
+    // Controle para evitar chamadas duplicadas
+    const isLoadingRef = useRef(false);
+    const lastRequestRef = useRef(null);
 
     /**
      * Converte objetos de ações/grupos para o formato de array usado pelos gráficos
@@ -117,13 +123,34 @@ const useTimelineAnalysis = () => {
      * @param {string} group - Grupo para filtrar
      */
     const loadTimelineData = useCallback(async (startDate, endDate, group = '') => {
+        console.log('🔍 [DEBUG TIMELINE] loadTimelineData chamado');
+        console.log('🔍 [DEBUG TIMELINE] Parâmetros:', { startDate, endDate, group });
+        
+        // Criar chave única para esta requisição
+        const requestKey = `${startDate}-${endDate}-${group}`;
+        console.log('🔍 [DEBUG TIMELINE] Chave da requisição:', requestKey);
+        
+        // Verificar se já está carregando ou se é a mesma requisição
+        if (isLoadingRef.current) {
+            console.log('🔍 [DEBUG TIMELINE] loadTimelineData cancelado - já está carregando');
+            return;
+        }
+        
+        if (lastRequestRef.current === requestKey) {
+            console.log('🔍 [DEBUG TIMELINE] loadTimelineData cancelado - requisição duplicada');
+            return;
+        }
+        
         try {
+            console.log('🔍 [DEBUG TIMELINE] Iniciando chamada para API...');
+            isLoadingRef.current = true;
+            lastRequestRef.current = requestKey;
             setLoading(true);
             setError(null);
             
-            console.log('Solicitando dados de análise temporal com:', { startDate, endDate, group });
+            console.log('🔍 [DEBUG TIMELINE] Solicitando dados de análise temporal com:', { startDate, endDate, group });
             const response = await incidentService.getTimelineAnalysis(startDate, endDate, group);
-            console.log('Resposta recebida da API:', response);
+            console.log('🔍 [DEBUG TIMELINE] Resposta recebida da API:', response);
             
             // Extrai e processa os dados da resposta
             const extractedData = extractDataFromResponse(response);
@@ -134,13 +161,15 @@ const useTimelineAnalysis = () => {
             
         } catch (err) {
             setError('Erro ao carregar dados da análise temporal: ' + err.message);
-            console.error('Erro ao carregar dados da análise temporal:', err);
+            console.error('🔍 [DEBUG TIMELINE] Erro ao carregar dados da análise temporal:', err);
             
             // Reinicializa os dados em caso de erro
             setTimelineData([]);
             setDistributionByAction([]);
             setDistributionByGroup([]);
         } finally {
+            console.log('🔍 [DEBUG TIMELINE] Finalizando loadTimelineData');
+            isLoadingRef.current = false;
             setLoading(false);
         }
     }, []);

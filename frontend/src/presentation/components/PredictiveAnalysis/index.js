@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Card,
     CardContent,
@@ -67,9 +67,13 @@ import predictiveService from '../../../infrastructure/api/predictiveService';
 import RecommendationsCard from '../RecommendationsCard';
 import useSeasonality from '../../../application/hooks/useSeasonality';
 import { ComposedChart } from 'recharts';
+import GroupSelector from '../GroupSelector';
 
-const PredictiveAnalysis = () => {
-    const [productId, setProductId] = useState('ALL');
+const PredictiveAnalysis = ({ 
+    groups = [], 
+    groupsLoading = false, 
+    groupsError = null 
+}) => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [timeScale, setTimeScale] = useState('daily');
     const [monthsBack, setMonthsBack] = useState(3);
@@ -81,7 +85,6 @@ const PredictiveAnalysis = () => {
     });
     const [selectedScenario, setSelectedScenario] = useState('base');
     const [formErrors, setFormErrors] = useState({
-        productId: '',
         date: '',
         monthsBack: '',
         monthsForward: ''
@@ -113,6 +116,31 @@ const PredictiveAnalysis = () => {
     // Adicionar estado para o seletor de data
     const [dateRange, setDateRange] = useState({ startDate: null, endDate: null });
 
+    // Adicionar estado para o seletor de grupo
+    const [selectedGroup, setSelectedGroup] = useState('ALL');
+    
+    // Estado para controlar qual grupo foi analisado (usado para mostrar/ocultar gráficos)
+    const [analyzedGroup, setAnalyzedGroup] = useState('ALL');
+    
+    // Sincronizar analyzedGroup com selectedGroup para carregar recomendações imediatamente
+    useEffect(() => {
+        if (selectedGroup) {
+            setAnalyzedGroup(selectedGroup);
+        }
+    }, [selectedGroup]);
+    
+    // Estado para controlar quando as recomendações devem ser carregadas
+    const [shouldShowRecommendations, setShouldShowRecommendations] = useState(false);
+    
+    // Debug para monitorar mudanças de estado
+    useEffect(() => {
+        console.log('🔍 [DEBUG] shouldShowRecommendations mudou para:', shouldShowRecommendations);
+    }, [shouldShowRecommendations]);
+    
+    useEffect(() => {
+        console.log('🔍 [DEBUG] analyzedGroup mudou para:', analyzedGroup);
+    }, [analyzedGroup]);
+
     // Adicionar estados para controle da visualização
     const [periodComparisonBrushRange, setPeriodComparisonBrushRange] = useState({
         startIndex: 0,
@@ -130,18 +158,105 @@ const PredictiveAnalysis = () => {
 
     // Hook para obter dados de sazonalidade
     const { seasonalityData, loading: loadingSeasonality, error: errorSeasonality } = useSeasonality(
-        productId, 
+        selectedGroup, 
         dateRange.startDate && typeof dateRange.startDate === 'object' && dateRange.startDate instanceof Date && !isNaN(dateRange.startDate) ? format(dateRange.startDate, 'yyyy-MM-dd') : null, 
         dateRange.endDate && typeof dateRange.endDate === 'object' && dateRange.endDate instanceof Date && !isNaN(dateRange.endDate) ? format(dateRange.endDate, 'yyyy-MM-dd') : null,
         'day_of_week'
     );
 
+    // Memoizar o componente de recomendações para evitar re-renderizações desnecessárias
+    const recommendationsComponent = useMemo(() => {
+        // Sempre mostrar o componente, mas carregar dados apenas quando necessário
+        if (analyzedGroup && selectedDate) {
+            console.log('🔍 [DEBUG] useMemo - Renderizando RecommendationsCard');
+            console.log('🔍 [DEBUG] useMemo - analyzedGroup:', analyzedGroup);
+            console.log('🔍 [DEBUG] useMemo - selectedDate:', format(selectedDate, 'yyyy-MM-dd'));
+            
+            return (
+                <RecommendationsCard 
+                    groupId={analyzedGroup} 
+                    date={format(selectedDate, 'yyyy-MM-dd')} 
+                    onError={(errorMsg) => setErrorRecommendations(errorMsg)}
+                    variant="compact"
+                    borderColor="#03a9f4"
+                />
+            );
+        }
+        
+        return (
+            <Card variant="outlined" sx={{ 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column',
+                borderLeft: '4px solid #03a9f4',
+                borderRadius: 1,
+                minHeight: 350
+            }}>
+                <CardHeader 
+                    title="Recomendações Baseadas em Dados" 
+                    titleTypographyProps={{ 
+                        variant: 'h6',
+                        fontWeight: 600,
+                        fontSize: '1.25rem'
+                    }}
+                    avatar={<LightbulbIcon sx={{ color: '#03a9f4', fontSize: 28 }} />}
+                    subheader="Principais ações recomendadas baseadas nos dados"
+                    sx={{
+                        pb: 1.5,
+                        '& .MuiCardHeader-content': {
+                            overflow: 'hidden'
+                        }
+                    }}
+                />
+                <Divider />
+                <CardContent sx={{ 
+                    flexGrow: 1, 
+                    display: 'flex',
+                    justifyContent: 'center', 
+                    alignItems: 'center',
+                    px: 3,
+                    py: 2.5
+                }}>
+                    <Box sx={{ 
+                        textAlign: 'center', 
+                        maxWidth: 400,
+                        py: 4
+                    }}>
+                        <LightbulbIcon sx={{ 
+                            color: 'rgba(3, 169, 244, 0.2)',
+                            fontSize: 60,
+                            mb: 2
+                        }} />
+                        <Typography 
+                            color="text.secondary" 
+                            variant="h6"
+                            sx={{ mb: 1 }}
+                        >
+                            Dados não disponíveis
+                        </Typography>
+                        <Typography color="text.secondary" variant="body2">
+                            Selecione um grupo e uma data para visualizar recomendações personalizadas baseadas em dados.
+                        </Typography>
+                    </Box>
+                </CardContent>
+            </Card>
+        );
+    }, [analyzedGroup, selectedDate]);
+
     // Efeito para carregar os dados automaticamente na inicialização
     useEffect(() => {
-        if (productId && selectedDate) {
+        if (selectedGroup && selectedDate) {
             handleAnalyze();
         }
     }, []); // Executar apenas uma vez na montagem do componente
+
+    // Efeito para resetar as recomendações quando grupo ou data mudarem
+    useEffect(() => {
+        console.log('🔍 [DEBUG] useEffect disparado - resetando shouldShowRecommendations');
+        console.log('🔍 [DEBUG] selectedGroup mudou para:', selectedGroup);
+        console.log('🔍 [DEBUG] selectedDate mudou para:', selectedDate);
+        setShouldShowRecommendations(false);
+    }, [selectedGroup, selectedDate]);
 
     const handleTimeScaleChange = (event, newScale) => {
         if (newScale !== null) {
@@ -152,7 +267,7 @@ const PredictiveAnalysis = () => {
     const validateField = (name, value) => {
         let error = '';
         if (!value && value !== 0) {
-            error = `${name === 'productId' ? 'ID do Produto' : name === 'date' ? 'Data' : 'Campo'} é obrigatório`;
+            error = `${name === 'date' ? 'Data' : 'Campo'} é obrigatório`;
         } else if ((name === 'monthsBack' || name === 'monthsForward') && (value < 1 || value > 12)) {
             error = 'O valor deve estar entre 1 e 12 meses';
         }
@@ -178,15 +293,7 @@ const PredictiveAnalysis = () => {
         }
     };
 
-    const handleProductIdChange = (event) => {
-        const newValue = event.target.value.trim();
-        setProductId(newValue);
-        const error = validateField('productId', newValue);
-        setFormErrors(prev => ({
-            ...prev,
-            productId: error
-        }));
-    };
+
 
     const handleDateChange = (date) => {
         setSelectedDate(date);
@@ -198,11 +305,11 @@ const PredictiveAnalysis = () => {
     };
 
     // Função para buscar comparação de períodos
-    const loadPeriodComparison = async (productId, currentPeriodStart, currentPeriodEnd) => {
+    const loadPeriodComparison = async (groupId, currentPeriodStart, currentPeriodEnd) => {
         setLoadingPeriodComparison(true);
         setErrorPeriodComparison(null);
         try {
-            const result = await predictiveService.getPeriodComparison(productId, currentPeriodStart, currentPeriodEnd);
+            const result = await predictiveService.getPeriodComparison(groupId, currentPeriodStart, currentPeriodEnd);
             if (!result.success) throw new Error(result.error || 'Erro ao obter comparação de períodos');
             setPeriodComparison(result.data);
         } catch (err) {
@@ -214,13 +321,27 @@ const PredictiveAnalysis = () => {
     };
 
     const handleAnalyze = () => {
-        if (!productId.trim() || !selectedDate || 
+        console.log('🔍 [DEBUG] handleAnalyze iniciado');
+        console.log('🔍 [DEBUG] selectedGroup:', selectedGroup);
+        console.log('🔍 [DEBUG] selectedDate:', selectedDate);
+        console.log('🔍 [DEBUG] shouldShowRecommendations antes:', shouldShowRecommendations);
+        
+        if (!selectedGroup || !selectedDate || 
             monthsBack < 1 || monthsBack > 12 || 
             monthsForward < 1 || monthsForward > 12) return;
         
         try {
         const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-        loadVolumeAnalysis(productId, formattedDate, {
+        
+        // Armazenar o grupo que está sendo analisado
+        console.log('🔍 [DEBUG] Definindo analyzedGroup para:', selectedGroup);
+        setAnalyzedGroup(selectedGroup);
+        
+        // Permitir que as recomendações sejam carregadas
+        console.log('🔍 [DEBUG] Definindo shouldShowRecommendations para: true');
+        setShouldShowRecommendations(true);
+        
+        loadVolumeAnalysis(selectedGroup, formattedDate, {
             monthsBack,
             monthsForward
         });
@@ -242,9 +363,9 @@ const PredictiveAnalysis = () => {
                 const startDateFormatted = format(startDate, 'yyyy-MM-dd');
                 const endDateFormatted = format(endDate, 'yyyy-MM-dd');
                 
-                loadInfluenceFactors(productId, startDateFormatted, endDateFormatted);
+                loadInfluenceFactors(selectedGroup, startDateFormatted, endDateFormatted);
                 // Buscar comparação de períodos
-                loadPeriodComparison(productId, startDateFormatted, endDateFormatted);
+                loadPeriodComparison(selectedGroup, startDateFormatted, endDateFormatted);
             } else {
                 console.error('Datas inválidas:', { startDate, endDate });
             }
@@ -271,12 +392,19 @@ const PredictiveAnalysis = () => {
                         null,
                     confidenceLower: item.predictedVolume && item.confidence ? 
                         Math.round(item.predictedVolume * (1 - (item.confidence || 0) * 0.5)) : 
+                        null,
+                    // Adicionar campo para a diferença (range) do intervalo de confiança
+                    confidenceRange: item.predictedVolume && item.confidence ? 
+                        Math.round(item.predictedVolume * (1 + (item.confidence || 0) * 0.5)) - Math.round(item.predictedVolume * (1 - (item.confidence || 0) * 0.5)) : 
                         null
                 }));
             }
 
             // Formato antigo: separado em historical e predictions
-            const historical = (volumeAnalysis.historical || []).map(h => ({
+            const historicalArr = Array.isArray(volumeAnalysis.historical) ? volumeAnalysis.historical : [];
+            const predictionsArr = Array.isArray(volumeAnalysis.predictions) ? volumeAnalysis.predictions : [];
+
+            const historical = historicalArr.map(h => ({
                 ...h,
                 date: format(parseISO(h.date), 'dd/MM/yyyy'),
                 isHistorical: true,
@@ -287,10 +415,14 @@ const PredictiveAnalysis = () => {
                     null,
                 confidenceLower: h.predictedVolume && h.confidence ? 
                     Math.round(h.predictedVolume * (1 - (h.confidence || 0) * 0.5)) : 
+                    null,
+                // Adicionar campo para a diferença (range) do intervalo de confiança
+                confidenceRange: h.predictedVolume && h.confidence ? 
+                    Math.round(h.predictedVolume * (1 + (h.confidence || 0) * 0.5)) - Math.round(h.predictedVolume * (1 - (h.confidence || 0) * 0.5)) : 
                     null
             }));
 
-            const predictions = (volumeAnalysis.predictions || []).map(p => ({
+            const predictions = predictionsArr.map(p => ({
                 ...p,
                 date: format(parseISO(p.date), 'dd/MM/yyyy'),
                 volume: null,
@@ -301,6 +433,10 @@ const PredictiveAnalysis = () => {
                     null,
                 confidenceLower: p.predictedVolume && p.confidence ? 
                     Math.round(p.predictedVolume * (1 - (p.confidence || 0) * 0.5)) : 
+                    null,
+                // Adicionar campo para a diferença (range) do intervalo de confiança
+                confidenceRange: p.predictedVolume && p.confidence ? 
+                    Math.round(p.predictedVolume * (1 + (p.confidence || 0) * 0.5)) - Math.round(p.predictedVolume * (1 - (p.confidence || 0) * 0.5)) : 
                     null
             }));
 
@@ -358,6 +494,11 @@ const PredictiveAnalysis = () => {
                         <Typography variant="body2" color="text.secondary">
                             Confiança: {data.confidence ? (data.confidence * 100).toFixed(1) : 0}%
                         </Typography>
+                        {data.confidenceUpper && data.confidenceLower && (
+                            <Typography variant="body2" color="text.secondary">
+                                Intervalo: {data.confidenceLower} - {data.confidenceUpper}
+                            </Typography>
+                        )}
                     </>
                 )}
             </Card>
@@ -916,6 +1057,17 @@ const PredictiveAnalysis = () => {
         return `rgb(${r}, ${g}, ${b})`;
     };
 
+    useEffect(() => {
+        const dadosGrafico = mergeByMonthAndYear(periodComparison?.currentPeriod, periodComparison?.previousPeriod);
+        if (dadosGrafico.length > 0 && periodComparisonBrushRange.endIndex >= dadosGrafico.length) {
+            setPeriodComparisonBrushRange(prev => ({
+                ...prev,
+                endIndex: Math.max(0, dadosGrafico.length - 1)
+            }));
+        }
+        // eslint-disable-next-line
+    }, [periodComparison, periodComparisonBrushRange]);
+
     return (
         <Box 
             className="predictive-analysis-container"
@@ -962,18 +1114,20 @@ const PredictiveAnalysis = () => {
                             avatar={<FilterListIcon color="primary" />}
                         />
                         <CardContent>
-                            <Grid container spacing={2} alignItems="center">
-                                <Grid item xs={12} md={3}>
-                                    <TextField
-                                        fullWidth
-                                        label="ID do Produto"
-                                        value={productId}
-                                        onChange={handleProductIdChange}
-                                        error={!!formErrors.productId}
-                                        helperText={formErrors.productId}
+                            <Grid container spacing={2} alignItems="center" justifyContent="flex-start" wrap="wrap">
+                                {/* Seletor de Grupo */}
+                                <Grid item xs={12} md={4} xl={4}>
+                                    <GroupSelector
+                                        value={selectedGroup}
+                                        onChange={(selection) => setSelectedGroup(selection.value)}
+                                        label="Selecionar Grupo"
+                                        groups={groups}
+                                        loading={groupsLoading}
+                                        error={groupsError}
                                     />
                                 </Grid>
-                                <Grid item xs={12} md={3}>
+                                {/* Data para Previsão */}
+                                <Grid item xs={12} md={2} xl={2}>
                                     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
                                         <DatePicker
                                             label="Data para Previsão"
@@ -989,10 +1143,11 @@ const PredictiveAnalysis = () => {
                                         />
                                     </LocalizationProvider>
                                 </Grid>
-                                <Grid item xs={12} md={2}>
+                                {/* Meses Passados */}
+                                <Grid item xs={12} md={2} xl={2}>
                                     <TextField
                                         fullWidth
-                                        label="Meses Anteriores"
+                                        label="Meses Passados"
                                         type="number"
                                         value={monthsBack}
                                         onChange={(e) => handleMonthsChange(e, 'back')}
@@ -1006,7 +1161,8 @@ const PredictiveAnalysis = () => {
                                         }}
                                     />
                                 </Grid>
-                                <Grid item xs={12} md={2}>
+                                {/* Meses Futuros */}
+                                <Grid item xs={12} md={2} xl={2}>
                                     <TextField
                                         fullWidth
                                         label="Meses Futuros"
@@ -1023,15 +1179,13 @@ const PredictiveAnalysis = () => {
                                         }}
                                     />
                                 </Grid>
-                                <Grid item xs={12} md={2}>
+                                {/* Botão Analisar */}
+                                <Grid item xs={12} md={2} xl={2} sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                                     <LoadingButton
                                         fullWidth
                                         variant="contained"
                                         onClick={handleAnalyze}
                                         loading={loading}
-                                        disabled={loading || !productId || !selectedDate || 
-                                            monthsBack < 1 || monthsBack > 12 || 
-                                            monthsForward < 1 || monthsForward > 12}
                                         sx={{ height: '56px' }}
                                     >
                                         Analisar
@@ -1221,8 +1375,8 @@ const PredictiveAnalysis = () => {
                                     </Box>
 
                                     {/* Metadados e Estatísticas */}
-                                        <Grid container spacing={2}>
-                                            <Grid item xs={12} md={4}>
+                                        <Grid container spacing={2} justifyContent="center" alignItems="center">
+                                            <Grid item xs={12} md={4} sx={{ textAlign: 'center' }}>
                                                 <Typography variant="subtitle1" gutterBottom>
                                                     Tendência: {(() => {
                                                         // Tentativa de acessar a tendência em diferentes formatos possíveis
@@ -1241,7 +1395,7 @@ const PredictiveAnalysis = () => {
                                                     })()}
                                                     </Typography>
                                             </Grid>
-                                            <Grid item xs={12} md={4}>
+                                            <Grid item xs={12} md={4} sx={{ textAlign: 'center' }}>
                                                 <Typography variant="subtitle1" gutterBottom>
                                                     Qualidade dos Dados: {(() => {
                                                         // Tentativa de acessar a qualidade dos dados em diferentes formatos possíveis
@@ -1258,7 +1412,7 @@ const PredictiveAnalysis = () => {
                                                     })()}
                                                     </Typography>
                                             </Grid>
-                                            <Grid item xs={12} md={4}>
+                                            <Grid item xs={12} md={4} sx={{ textAlign: 'center' }}>
                                                 <Typography variant="subtitle1" gutterBottom>
                                                     Última Atualização: {(() => {
                                                         // Tentativa de acessar a data de cálculo em diferentes formatos possíveis
@@ -1301,8 +1455,13 @@ const PredictiveAnalysis = () => {
                                 />
                                 <CardContent>
                                     <Box sx={{ height: 400, mb: 2 }}>
+                                        {(() => {
+                                            const futureData = formatData(volumeAnalysis).filter(d => d.isPrediction);
+                                            console.log('🔍 [DEBUG] Dados de previsão para gráfico de Expectativa de Volume Futuro:', futureData);
+                                            return null;
+                                        })()}
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart
+                                            <ComposedChart
                                                 data={formatData(volumeAnalysis).filter(d => d.isPrediction)}
                                                 margin={{
                                                     top: 10,
@@ -1335,27 +1494,57 @@ const PredictiveAnalysis = () => {
                                                     ]}
                                                 />
 
-                                                {/* Área de confiança com gradiente para previsão */}
+                                                {/* Definições para gradiente do intervalo de confiança */}
                                                 <defs>
                                                     <linearGradient id="confidenceGradient" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#4caf50" stopOpacity={0.3}/>
-                                                        <stop offset="95%" stopColor="#4caf50" stopOpacity={0.1}/>
+                                                        <stop offset="5%" stopColor="#4caf50" stopOpacity={0.25}/>
+                                                        <stop offset="95%" stopColor="#4caf50" stopOpacity={0.05}/>
                                                     </linearGradient>
                                                 </defs>
                                                 
+                                                {/* Área do intervalo de confiança usando dois Area com stackId */}
+                                                {/* Área invisível do zero até confidenceLower (para criar a base) */}
                                                 <Area
-                                                    type="monotone"
-                                                    dataKey="confidenceUpper"
-                                                    stroke="none"
-                                                    fill="url(#confidenceGradient)"
-                                                    fillOpacity={1}
-                                                />
-                                                <Area
-                                                    type="monotone"
+                                                    type="linear"
                                                     dataKey="confidenceLower"
                                                     stroke="none"
-                                                    fill="url(#confidenceGradient)"
-                                                    fillOpacity={1}
+                                                    fill="transparent"
+                                                    fillOpacity={0}
+                                                    stackId="confidence"
+                                                    isAnimationActive={false}
+                                                />
+                                                {/* Área visível de confidenceLower até confidenceUpper */}
+                                                <Area
+                                                    type="linear"
+                                                    dataKey={(d) => d.confidenceUpper - d.confidenceLower}
+                                                    stroke="none"
+                                                    fill="rgba(76, 175, 80, 0.3)"
+                                                    fillOpacity={0.6}
+                                                    stackId="confidence"
+                                                    isAnimationActive={false}
+                                                    name="Intervalo de Confiança"
+                                                />
+                                                
+                                                {/* Linhas de referência para os limites (opcionais, mais sutis) */}
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="confidenceUpper"
+                                                    stroke="rgba(76, 175, 80, 0.3)" 
+                                                    strokeWidth={1}
+                                                    strokeDasharray="2 2"
+                                                    dot={false}
+                                                    activeDot={false}
+                                                    name=""
+                                                />
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="confidenceLower"
+                                                    stroke="rgba(76, 175, 80, 0.3)" 
+                                                    strokeWidth={1}
+                                                    strokeDasharray="2 2"
+                                                    dot={false}
+                                                    activeDot={false}
+                                                    name=""
                                                 />
 
                                                 {/* Linha de previsão principal com efeito visual */}
@@ -1388,7 +1577,7 @@ const PredictiveAnalysis = () => {
                                                     strokeWidth={2}
                                                     isFront={false}
                                                 />
-                                            </LineChart>
+                                            </ComposedChart>
                                         </ResponsiveContainer>
                                     </Box>
 
@@ -1460,122 +1649,124 @@ const PredictiveAnalysis = () => {
                         </Grid>
 
                         {/* Novo componente: Fatores de Influência */}
-                        <Grid item xs={12} md={6}>
-                            <Card sx={{ 
-                                borderLeft: '4px solid #9c27b0',
-                                borderRadius: 1,
-                                transition: 'all 0.3s ease',
-                                height: '100%',
-                                '&:hover': {
-                                    boxShadow: '0 6px 12px rgba(156, 39, 176, 0.15)'
-                                }
-                            }}>
-                                <CardHeader 
-                                    title="Fatores de Influência" 
-                                    avatar={<FilterListIcon sx={{ color: '#9c27b0' }} />}
-                                    subheader="Variáveis que impactam o volume previsto"
-                                />
-                                <CardContent>
-                                    {loadingInfluenceFactors ? (
-                                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 80 }}>
-                                            <CircularProgress size={32} color="secondary" />
-                                        </Box>
-                                    ) : errorInfluenceFactors ? (
-                                        <Alert severity="error">{errorInfluenceFactors}</Alert>
-                                    ) : (
-                                        <>
-                                    <List>
-                                                {(influenceFactors && influenceFactors.length > 0
-                                                    ? influenceFactors.slice(factorsPage * FACTORS_PER_PAGE, (factorsPage + 1) * FACTORS_PER_PAGE)
-                                                    : []
-                                                ).map((factor, index) => (
-                                                    <React.Fragment key={index + factorsPage * FACTORS_PER_PAGE}>
-                                                <ListItem alignItems="flex-start">
-                                                    <ListItemIcon>
-                                                        <Box 
-                                                            sx={{ 
-                                                                width: 40, 
-                                                                height: 40, 
-                                                                borderRadius: '50%', 
-                                                                backgroundColor: 'rgba(156, 39, 176, 0.1)',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                color: '#9c27b0',
-                                                                fontWeight: 'bold'
-                                                            }}
-                                                        >
-                                                            {Math.round(factor.impact * 100)}%
-                                                        </Box>
-                                                    </ListItemIcon>
-                                                    <ListItemText
-                                                        primary={factor.name}
-                                                        secondary={
-                                                            <>
-                                                                <Typography variant="body2" color="text.secondary">
-                                                                    {factor.description}
-                                                                </Typography>
-                                                                <Box sx={{ width: '100%', mt: 1 }}>
-                                                                    <Box sx={{ 
-                                                                        height: 4, 
-                                                                        width: '100%', 
-                                                                        backgroundColor: 'rgba(156, 39, 176, 0.1)',
-                                                                        borderRadius: 2
-                                                                    }}>
+                        {analyzedGroup === 'ALL' && (
+                            <Grid item xs={12} md={6}>
+                                <Card sx={{ 
+                                    borderLeft: '4px solid #9c27b0',
+                                    borderRadius: 1,
+                                    transition: 'all 0.3s ease',
+                                    height: '100%',
+                                    '&:hover': {
+                                        boxShadow: '0 6px 12px rgba(156, 39, 176, 0.15)'
+                                    }
+                                }}>
+                                    <CardHeader 
+                                        title="Fatores de Influência" 
+                                        avatar={<FilterListIcon sx={{ color: '#9c27b0' }} />}
+                                        subheader="Variáveis que impactam o volume previsto"
+                                    />
+                                    <CardContent>
+                                        {loadingInfluenceFactors ? (
+                                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 80 }}>
+                                                <CircularProgress size={32} color="secondary" />
+                                            </Box>
+                                        ) : errorInfluenceFactors ? (
+                                            <Alert severity="error">{errorInfluenceFactors}</Alert>
+                                        ) : (
+                                            <>
+                                        <List>
+                                                    {(influenceFactors && influenceFactors.length > 0
+                                                        ? influenceFactors.slice(factorsPage * FACTORS_PER_PAGE, (factorsPage + 1) * FACTORS_PER_PAGE)
+                                                        : []
+                                                    ).map((factor, index) => (
+                                                        <React.Fragment key={index + factorsPage * FACTORS_PER_PAGE}>
+                                                    <ListItem alignItems="flex-start">
+                                                        <ListItemIcon>
+                                                            <Box 
+                                                                sx={{ 
+                                                                    width: 40, 
+                                                                    height: 40, 
+                                                                    borderRadius: '50%', 
+                                                                    backgroundColor: 'rgba(156, 39, 176, 0.1)',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    color: '#9c27b0',
+                                                                    fontWeight: 'bold'
+                                                                }}
+                                                            >
+                                                                {Math.round(factor.impact * 100)}%
+                                                            </Box>
+                                                        </ListItemIcon>
+                                                        <ListItemText
+                                                            primary={factor.name}
+                                                            secondary={
+                                                                <>
+                                                                    <Typography variant="body2" color="text.secondary">
+                                                                        {factor.description}
+                                                                    </Typography>
+                                                                    <Box sx={{ width: '100%', mt: 1 }}>
                                                                         <Box sx={{ 
-                                                                            height: '100%', 
-                                                                            width: `${factor.impact * 100}%`,
-                                                                            backgroundColor: '#9c27b0',
+                                                                            height: 4, 
+                                                                            width: '100%', 
+                                                                            backgroundColor: 'rgba(156, 39, 176, 0.1)',
                                                                             borderRadius: 2
-                                                                        }} />
+                                                                        }}>
+                                                                            <Box sx={{ 
+                                                                                height: '100%', 
+                                                                                width: `${factor.impact * 100}%`,
+                                                                                backgroundColor: '#9c27b0',
+                                                                                borderRadius: 2
+                                                                            }} />
+                                                                        </Box>
                                                                     </Box>
-                                                                </Box>
-                                                            </>
-                                                        }
-                                                    />
-                                                </ListItem>
-                                                        {index < (Math.min(FACTORS_PER_PAGE, influenceFactors.length - factorsPage * FACTORS_PER_PAGE) - 1) && <Divider variant="inset" component="li" />}
-                                            </React.Fragment>
-                                        ))}
-                                                {(!influenceFactors || influenceFactors.length === 0) && (
-                                                    <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-                                                        Nenhum fator de influência encontrado para o período selecionado.
-                                                    </Typography>
+                                                                </>
+                                                            }
+                                                        />
+                                                    </ListItem>
+                                                            {index < (Math.min(FACTORS_PER_PAGE, influenceFactors.length - factorsPage * FACTORS_PER_PAGE) - 1) && <Divider variant="inset" component="li" />}
+                                                </React.Fragment>
+                                            ))}
+                                                    {(!influenceFactors || influenceFactors.length === 0) && (
+                                                        <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                                                            Nenhum fator de influência encontrado para o período selecionado.
+                                                        </Typography>
+                                                    )}
+                                        </List>
+                                                {/* Paginação */}
+                                                {influenceFactors && influenceFactors.length > FACTORS_PER_PAGE && (
+                                                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 2 }}>
+                                                        <Button
+                                                            variant="outlined"
+                                                            size="small"
+                                                            sx={{ mr: 1 }}
+                                                            disabled={factorsPage === 0}
+                                                            onClick={() => setFactorsPage(p => Math.max(0, p - 1))}
+                                                        >
+                                                            Anterior
+                                                        </Button>
+                                                        <Typography variant="body2" sx={{ mx: 1 }}>
+                                                            Página {factorsPage + 1} de {Math.ceil(influenceFactors.length / FACTORS_PER_PAGE)}
+                                                        </Typography>
+                                                        <Button
+                                                            variant="outlined"
+                                                            size="small"
+                                                            disabled={(factorsPage + 1) * FACTORS_PER_PAGE >= influenceFactors.length}
+                                                            onClick={() => setFactorsPage(p => p + 1)}
+                                                        >
+                                                            Próxima
+                                                        </Button>
+                                                    </Box>
                                                 )}
-                                    </List>
-                                            {/* Paginação */}
-                                            {influenceFactors && influenceFactors.length > FACTORS_PER_PAGE && (
-                                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 2 }}>
-                                                    <Button
-                                                        variant="outlined"
-                                                        size="small"
-                                                        sx={{ mr: 1 }}
-                                                        disabled={factorsPage === 0}
-                                                        onClick={() => setFactorsPage(p => Math.max(0, p - 1))}
-                                                    >
-                                                        Anterior
-                                                    </Button>
-                                                    <Typography variant="body2" sx={{ mx: 1 }}>
-                                                        Página {factorsPage + 1} de {Math.ceil(influenceFactors.length / FACTORS_PER_PAGE)}
-                                                    </Typography>
-                                                    <Button
-                                                        variant="outlined"
-                                                        size="small"
-                                                        disabled={(factorsPage + 1) * FACTORS_PER_PAGE >= influenceFactors.length}
-                                                        onClick={() => setFactorsPage(p => p + 1)}
-                                                    >
-                                                        Próxima
-                                                    </Button>
-                                                </Box>
-                                            )}
-                                        </>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Grid>
+                                            </>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        )}
 
                         {/* Novo componente: Comparação com Períodos Anteriores */}
-                        <Grid item xs={12} md={6}>
+                        <Grid item xs={12} md={analyzedGroup === 'ALL' ? 6 : 12}>
                             <Card sx={{ 
                                 borderLeft: '4px solid #ff5722',
                                 borderRadius: 1,
@@ -1604,28 +1795,6 @@ const PredictiveAnalysis = () => {
                                             {(() => {
                                                 const dadosGrafico = mergeByMonthAndYear(periodComparison?.currentPeriod, periodComparison?.previousPeriod);
                                                 const anos = dadosGrafico.length > 0 ? Object.keys(dadosGrafico[0]).filter(k => k !== 'mes') : [];
-                                                
-                                                // Garantir que os índices estão dentro dos limites
-                                                if (periodComparisonBrushRange.endIndex >= dadosGrafico.length) {
-                                                    setPeriodComparisonBrushRange({
-                                                        ...periodComparisonBrushRange,
-                                                        endIndex: Math.max(0, dadosGrafico.length - 1)
-                                                    });
-                                                }
-                                                
-                                                // Calcular o período selecionado para exibição
-                                                if (dadosGrafico.length > 0 && 
-                                                    periodComparisonBrushRange.startIndex < dadosGrafico.length && 
-                                                    periodComparisonBrushRange.endIndex < dadosGrafico.length) {
-                                                    const startMonth = dadosGrafico[periodComparisonBrushRange.startIndex]?.mes;
-                                                    const endMonth = dadosGrafico[periodComparisonBrushRange.endIndex]?.mes;
-                                                    if (startMonth && endMonth && (dateRange.startDate !== startMonth || dateRange.endDate !== endMonth)) {
-                                                        setDateRange({
-                                                            startDate: startMonth,
-                                                            endDate: endMonth
-                                                        });
-                                                    }
-                                                }
                                                 
                                                 return (
                                                     <LineChart data={dadosGrafico}>
@@ -1663,7 +1832,7 @@ const PredictiveAnalysis = () => {
                                     </Box>
                                     {dateRange.startDate && dateRange.endDate && (
                                         <Typography variant="caption" color="text.secondary" align="center" sx={{ display: 'block', mb: 1, fontWeight: 'bold' }}>
-                                            Período visualizado: {dateRange.startDate} - {dateRange.endDate}
+                                            Período visualizado: {typeof dateRange.startDate === 'string' ? dateRange.startDate : format(dateRange.startDate, 'MMM/yyyy')} - {typeof dateRange.endDate === 'string' ? dateRange.endDate : format(dateRange.endDate, 'MMM/yyyy')}
                                         </Typography>
                                     )}
                                     <Box
@@ -1734,74 +1903,11 @@ const PredictiveAnalysis = () => {
                             </Card>
                         </Grid>
 
+
+
                         {/* Novo componente: Recomendações de Ação */}
                         <Grid item xs={12}>
-                            {productId && selectedDate ? (
-                                <RecommendationsCard 
-                                    productId={productId} 
-                                    date={format(selectedDate, 'yyyy-MM-dd')} 
-                                    onError={(errorMsg) => setErrorRecommendations(errorMsg)}
-                                    variant="compact"
-                                    borderColor="#03a9f4"
-                                />
-                            ) : (
-                                <Card variant="outlined" sx={{ 
-                                    height: '100%', 
-                                    display: 'flex', 
-                                    flexDirection: 'column',
-                                borderLeft: '4px solid #03a9f4',
-                                borderRadius: 1,
-                                    minHeight: 350
-                            }}>
-                                <CardHeader 
-                                    title="Recomendações Baseadas em Dados" 
-                                        titleTypographyProps={{ 
-                                            variant: 'h6',
-                                            fontWeight: 600,
-                                            fontSize: '1.25rem'
-                                        }}
-                                        avatar={<LightbulbIcon sx={{ color: '#03a9f4', fontSize: 28 }} />}
-                                        subheader="Principais ações recomendadas baseadas nos dados"
-                                        sx={{
-                                            pb: 1.5,
-                                            '& .MuiCardHeader-content': {
-                                                overflow: 'hidden'
-                                            }
-                                        }}
-                                    />
-                                    <Divider />
-                                    <CardContent sx={{ 
-                                        flexGrow: 1, 
-                                                    display: 'flex',
-                                        justifyContent: 'center', 
-                                        alignItems: 'center',
-                                        px: 3,
-                                        py: 2.5
-                                    }}>
-                                                    <Box sx={{ 
-                                            textAlign: 'center', 
-                                            maxWidth: 400,
-                                            py: 4
-                                        }}>
-                                            <LightbulbIcon sx={{ 
-                                                color: 'rgba(3, 169, 244, 0.2)',
-                                                fontSize: 60,
-                                                mb: 2
-                                            }} />
-                                            <Typography 
-                                                color="text.secondary" 
-                                                variant="h6"
-                                                sx={{ mb: 1 }}
-                                            >
-                                                Dados não disponíveis
-                                            </Typography>
-                                            <Typography color="text.secondary" variant="body2">
-                                                Selecione um produto e uma data para visualizar recomendações personalizadas baseadas em dados.
-                                            </Typography>
-                                                    </Box>
-                                </CardContent>
-                            </Card>
-                            )}
+                            {recommendationsComponent}
                             {errorRecommendations && (
                                 <Alert severity="error" sx={{ mt: 2 }}>
                                     {errorRecommendations}
@@ -1902,6 +2008,20 @@ const PredictiveAnalysis = () => {
                                     <Box sx={{ height: 400, mb: 2 }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <LineChart
+                                                data={(() => {
+                                                    const scenarios = generateScenarios(formatData(volumeAnalysis));
+                                                    const baseData = scenarios.base || [];
+                                                    const optimisticData = scenarios.optimistic || [];
+                                                    const pessimisticData = scenarios.pessimistic || [];
+                                                    
+                                                    // Combinar todos os dados em um único array
+                                                    return baseData.map((item, index) => ({
+                                                        date: item.date,
+                                                        base: item.predictedVolume,
+                                                        optimistic: optimisticData[index]?.predictedVolume || null,
+                                                        pessimistic: pessimisticData[index]?.predictedVolume || null
+                                                    }));
+                                                })()}
                                                 margin={{
                                                     top: 10,
                                                     right: 30,
@@ -1928,39 +2048,39 @@ const PredictiveAnalysis = () => {
                                                 {/* Cenário base */}
                                                 {(selectedScenario === 'base' || selectedScenario === 'all') && (
                                                     <Line 
-                                                        data={generateScenarios(formatData(volumeAnalysis)).base}
                                                         type="monotone" 
-                                                        dataKey="predictedVolume"
+                                                        dataKey="base"
                                                         name="Cenário Base"
                                                         stroke="#673ab7" 
                                                         strokeWidth={2}
                                                         dot={{ r: 4 }}
+                                                        connectNulls={false}
                                                     />
                                                 )}
                                                 
                                                 {/* Cenário otimista */}
                                                 {(selectedScenario === 'optimistic' || selectedScenario === 'all') && (
                                                     <Line 
-                                                        data={generateScenarios(formatData(volumeAnalysis)).optimistic}
                                                         type="monotone" 
-                                                        dataKey="predictedVolume"
+                                                        dataKey="optimistic"
                                                         name="Cenário Otimista"
                                                         stroke="#4caf50" 
                                                         strokeWidth={2}
                                                         dot={{ r: 4 }}
+                                                        connectNulls={false}
                                                     />
                                                 )}
                                                 
                                                 {/* Cenário pessimista */}
                                                 {(selectedScenario === 'pessimistic' || selectedScenario === 'all') && (
                                                     <Line 
-                                                        data={generateScenarios(formatData(volumeAnalysis)).pessimistic}
                                                         type="monotone" 
-                                                        dataKey="predictedVolume"
+                                                        dataKey="pessimistic"
                                                         name="Cenário Pessimista"
                                                         stroke="#f44336" 
                                                         strokeWidth={2}
                                                         dot={{ r: 4 }}
+                                                        connectNulls={false}
                                                     />
                                                 )}
                                             </LineChart>

@@ -44,16 +44,16 @@ const PredictionsCard = ({ predictions, loading, error }) => {
                     </Link>
                 </Box>
 
-                {error || !predictions ? (
+                {error || !predictions || predictions.predictedVolume === undefined ? (
                     <Typography variant="body1" color="text.secondary" sx={{ mt: 4, textAlign: 'center' }}>
                         Sem previsões disponíveis
                     </Typography>
                 ) : (
                     <Box sx={{ mt: 2 }}>
                         <Typography variant="h4" component="div">
-                            {predictions.predictedVolume.toLocaleString()}
+                            {typeof predictions.predictedVolume === 'number' ? predictions.predictedVolume.toLocaleString() : '-'}
                         </Typography>
-                        {predictions.trend && (
+                        {predictions.trend !== undefined && predictions.trend !== null && (
                             <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                                 <TrendingUpIcon 
                                     sx={{ 
