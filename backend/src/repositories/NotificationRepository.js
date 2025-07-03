@@ -79,13 +79,23 @@ class NotificationRepository extends BaseRepository {
      * @returns {Promise<number>} Número de notificações atualizadas
      */
     async markAllAsRead(groupId) {
-        const query = `
-            UPDATE notifications
-            SET read_at = CURRENT_TIMESTAMP
-            WHERE group_id = ? AND read_at IS NULL
-        `;
-        
-        const result = await this.execute(query, [groupId]);
+        let query, params;
+        if (groupId === 'ALL') {
+            query = `
+                UPDATE notifications
+                SET read_at = CURRENT_TIMESTAMP
+                WHERE read_at IS NULL
+            `;
+            params = [];
+        } else {
+            query = `
+                UPDATE notifications
+                SET read_at = CURRENT_TIMESTAMP
+                WHERE group_id = ? AND read_at IS NULL
+            `;
+            params = [groupId];
+        }
+        const result = await this.execute(query, params);
         return result.changes;
     }
 

@@ -29,7 +29,7 @@ const notificationService = {
      */
     async markAllAsRead(groupId = 'ALL') {
         try {
-            const response = await api.put('/predictive/notifications/mark-all-read', null, {
+            const response = await api.put('/predictive/notifications/mark-all-read', {}, {
                 params: { groupId }
             });
             return response.data;
