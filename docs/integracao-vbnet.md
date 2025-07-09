@@ -1426,3 +1426,385 @@ Public Class SincronizadorDados
 
 End Class
 ``` 
+
+---
+
+## 🚀 Plano de Execução para Nova Instalação (Primeira Execução)
+
+A estratégia a seguir unifica o processo de inicialização da aplicação, tratando tanto a **primeira instalação em uma máquina cliente "limpa"** quanto as **inicializações subsequentes**. O objetivo é garantir que a aplicação sempre tenha os arquivos necessários e os dados sincronizados antes de ser exibida ao usuário.
+
+### Conceito
+
+O fluxo de inicialização é orquestrado para ser auto-suficiente:
+
+1.  **Detecção de Primeira Execução**: A aplicação verifica a existência de um arquivo de controle (ex: `version.local`). Se o arquivo não existe, ela assume que é a primeira instalação.
+2.  **Download Mandatório**: Na primeira execução, o download da última versão da aplicação (backend e frontend) é **obrigatório**. A aplicação não prosseguirá sem baixar os arquivos do servidor de atualizações.
+3.  **Carga de Dados Inicial**: Imediatamente após o download dos arquivos na primeira instalação, o `SincronizadorDados` é invocado para executar a `RealizarCargaInicial`. Este processo popula o banco de dados SQLite local com o histórico de dados completo (ex: últimos 3 anos). Este passo é crucial para que a IA tenha dados para trabalhar.
+4.  **Reinicialização Pós-Instalação**: Após a conclusão da carga inicial, a aplicação é reiniciada. Isso garante um estado limpo e consistente para a primeira utilização real.
+5.  **Fluxo de Execução Padrão**: Em todas as inicializações seguintes (quando `version.local` já existe), o fluxo é diferente:
+    *   Verifica-se por atualizações de forma opcional (o usuário pode escolher se quer atualizar).
+    *   Executa-se a `RealizarCargaIncremental` do `SincronizadorDados` para obter apenas os registros novos desde a última sincronização.
+    *   O sistema é iniciado normalmente.
+
+Este modelo garante que um novo cliente precise apenas executar o `MeuAppVB.exe`, e todo o processo de setup e sincronização de dados será tratado automaticamente.
+
+### Código de Exemplo (Orquestrador no MainForm)
+
+O código a seguir apresenta a implementação completa e integrada da classe `MainForm` para orquestrar todo o processo de inicialização, atualização e sincronização.
+
+```vbnet
+Imports Microsoft.Web.WebView2.WinForms
+Imports Microsoft.Web.WebView2.Core
+Imports System.IO
+Imports System.Net
+Imports System.Diagnostics
+
+Public Class MainForm
+    ' --- Controles da UI e Processos ---
+    Private webView As WebView2
+    Private backendProcess As Process
+    Private httpListener As HttpListener
+    
+    ' --- Gerenciadores de Lógica ---
+    Private updateManager As UpdateManager
+    Private sincronizador As SincronizadorDados
+    
+    ' --- Constantes ---
+    Private Const LOCAL_VERSION_FILE As String = "version.local"
+
+    ''' <summary>
+    ''' Ponto de entrada do formulário.
+    ''' </summary>
+    Private Sub MainForm_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        InitializeComponents()
+        ' Inicia o processo unificado de startup em uma thread separada para não bloquear a UI.
+        Task.Run(AddressOf UnifiedStartupProcess)
+    End Sub
+    
+    ''' <summary>
+    ''' Configura os componentes iniciais da aplicação.
+    ''' </summary>
+    Private Sub InitializeComponents()
+        ' Configurar o controle WebView2
+        webView = New WebView2()
+        webView.Dock = DockStyle.Fill
+        Me.Controls.Add(webView)
+        
+        ' Instanciar os gerenciadores de lógica de negócio
+        updateManager = New UpdateManager()
+        sincronizador = New SincronizadorDados()
+        
+        ' Conectar o evento de progresso do gerenciador de atualização à UI
+        AddHandler updateManager.ProgressChanged, AddressOf OnUpdateProgress
+    End Sub
+
+    ''' <summary>
+    ''' Orquestra a inicialização da aplicação, tratando a primeira execução e as subsequentes.
+    ''' Este é o coração da lógica de inicialização.
+    ''' </summary>
+    Private Async Sub UnifiedStartupProcess()
+        Try
+            ' Etapa 1: Verificar se é a primeira execução (ausência do arquivo de versão local)
+            Dim isFirstRun As Boolean = Not File.Exists(Path.Combine(Application.StartupPath, LOCAL_VERSION_FILE))
+
+            UpdateStatus("Verificando atualizações da aplicação...")
+            Dim updateResult = Await updateManager.VerificarAtualizacoes()
+
+            If isFirstRun Then
+                ' FLUXO DE PRIMEIRA EXECUÇÃO (INSTALAÇÃO)
+                If Not updateResult.HasUpdate Then
+                    Throw New Exception("Nenhuma versão da aplicação foi encontrada no servidor para a instalação inicial.")
+                End If
+                
+                UpdateStatus("Realizando download dos arquivos da aplicação...")
+                Await AplicarAtualizacao(updateResult.VersionInfo)
+
+                UpdateStatus("Executando carga de dados inicial. Isso pode levar vários minutos...")
+                Await Task.Run(Sub() sincronizador.RealizarCargaInicial())
+
+                UpdateStatus("Instalação concluída. A aplicação será reiniciada.")
+                MessageBox.Show("A instalação inicial foi concluída com sucesso. A aplicação será reiniciada agora.", "Instalação Concluída", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                
+                Application.Restart()
+                Environment.Exit(0) ' Força o encerramento do processo atual
+                Return
+            
+            Else
+                ' FLUXO DE EXECUÇÃO NORMAL (PÓS-INSTALAÇÃO)
+                If updateResult.Success AndAlso updateResult.HasUpdate Then
+                    Dim userChoice = MessageBox.Show(
+                        $"Uma nova versão ({updateResult.VersionInfo.Version}) está disponível. Deseja atualizar agora?",
+                        "Atualização Disponível", MessageBoxButtons.YesNo, MessageBoxIcon.Question)
+                    
+                    If userChoice = DialogResult.Yes Then
+                        UpdateStatus("Atualizando aplicação...")
+                        Await AplicarAtualizacao(updateResult.VersionInfo)
+                        Application.Restart() ' Reinicia para aplicar as atualizações
+                        Environment.Exit(0)
+                        Return
+                    End If
+                End If
+                
+                UpdateStatus("Sincronizando dados recentes...")
+                Await Task.Run(Sub() sincronizador.RealizarCargaIncremental())
+            End If
+
+            ' Etapa Final: Iniciar os serviços da aplicação
+            UpdateStatus("Iniciando serviços locais...")
+            Await IniciarSistema()
+
+        Catch ex As Exception
+            DiagnosticManager.Log($"Erro crítico na inicialização: {ex.Message}", "FATAL")
+            MessageBox.Show($"Ocorreu um erro crítico durante a inicialização: {ex.Message}", "Erro de Inicialização", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Application.Exit()
+        End Try
+    End Sub
+    
+    ''' <summary>
+    ''' Aplica uma atualização baixada, invocando o UpdateManager.
+    ''' </summary>
+    Private Async Function AplicarAtualizacao(versionInfo As VersionInfo) As Task
+        Try
+            Dim result = Await updateManager.AplicarAtualizacao(versionInfo)
+            If Not result.Success Then
+                MessageBox.Show($"Erro durante a atualização: {result.Message}", "Erro de Atualização", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            End If
+        Catch ex As Exception
+             MessageBox.Show($"Falha catastrófica ao aplicar a atualização: {ex.Message}", "Erro Crítico", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Function
+
+    ''' <summary>
+    ''' Inicia o backend (EXE) e o servidor web local para servir o frontend.
+    ''' </summary>
+    Private Async Function IniciarSistema() As Task
+        Try
+            UpdateStatus("Iniciando backend...")
+            IniciarBackend()
+            
+            UpdateStatus("Iniciando servidor web local...")
+            IniciarServidorWeb()
+            
+            Await Task.Delay(3000) ' Aguarda um tempo para os serviços subirem
+            
+            UpdateStatus("Carregando interface do usuário...")
+            webView.Source = New Uri("http://localhost:8080") ' A porta deve ser a mesma do HttpListener
+            
+            UpdateStatus("Sistema pronto.")
+            
+        Catch ex As Exception
+            MessageBox.Show($"Erro ao iniciar os serviços do sistema: {ex.Message}", "Erro de Sistema", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Function
+
+    Private Sub IniciarBackend()
+        Dim backendPath = Path.Combine(Application.StartupPath, "backend", "suat-backend.exe")
+        If Not File.Exists(backendPath) Then
+            Throw New FileNotFoundException("Executável do Backend não encontrado: " & backendPath)
+        End If
+        
+        backendProcess = New Process()
+        With backendProcess.StartInfo
+            .FileName = backendPath
+            .WorkingDirectory = Path.GetDirectoryName(backendPath)
+            .UseShellExecute = False
+            .CreateNoWindow = True
+            .WindowStyle = ProcessWindowStyle.Hidden
+        End With
+        backendProcess.Start()
+    End Sub
+
+    Private Sub IniciarServidorWeb()
+        httpListener = New HttpListener()
+        httpListener.Prefixes.Add("http://localhost:8080/") ' Esta porta deve ser configurável
+        httpListener.Start()
+        Task.Run(AddressOf ProcessarRequisicoes)
+    End Sub
+
+    Private Sub ProcessarRequisicoes()
+        While httpListener.IsListening
+            Try
+                Dim context = httpListener.GetContext()
+                Dim request = context.Request
+                Dim response = context.Response
+                
+                Dim urlPath = If(request.Url.AbsolutePath = "/", "/index.html", request.Url.AbsolutePath)
+                Dim filePath = Path.Combine(Application.StartupPath, "frontend", "build", urlPath.TrimStart("/"c))
+                
+                If File.Exists(filePath) Then
+                    Dim fileBytes = File.ReadAllBytes(filePath)
+                    response.ContentType = GetContentType(Path.GetExtension(filePath))
+                    response.ContentLength64 = fileBytes.Length
+                    response.OutputStream.Write(fileBytes, 0, fileBytes.Length)
+                Else
+                    ' Fallback para index.html para suportar roteamento de Single Page Applications (SPA)
+                    Dim indexPath = Path.Combine(Application.StartupPath, "frontend", "build", "index.html")
+                    If File.Exists(indexPath) Then
+                        Dim indexBytes = File.ReadAllBytes(indexPath)
+                        response.ContentType = "text/html"
+                        response.ContentLength64 = indexBytes.Length
+                        response.OutputStream.Write(indexBytes, 0, indexBytes.Length)
+                    Else
+                        response.StatusCode = 404
+                    End If
+                End If
+                response.Close()
+            Catch ex As HttpListenerException When ex.ErrorCode = 995 ' Operação abortada (listener parou)
+                Exit While
+            Catch
+                ' Ignorar outros erros de conexão para manter o servidor resiliente
+            End Try
+        End While
+    End Sub
+
+    Private Function GetContentType(extension As String) As String
+        Select Case extension.ToLower()
+            Case ".html": Return "text/html; charset=utf-8"
+            Case ".css": Return "text/css"
+            Case ".js": Return "application/javascript"
+            Case ".json": Return "application/json"
+            Case ".png": Return "image/png"
+            Case ".jpg", ".jpeg": Return "image/jpeg"
+            Case ".svg": Return "image/svg+xml"
+            Case Else: Return "application/octet-stream"
+        End Select
+    End Function
+    
+    ' --- Métodos de UI e Ciclo de Vida ---
+    
+    Private Sub UpdateStatus(message As String)
+        If Me.InvokeRequired Then
+            Me.Invoke(Sub() lblStatus.Text = message)
+        Else
+            lblStatus.Text = message
+        End If
+    End Sub
+    
+    Private Sub OnUpdateProgress(percentage As Integer, status As String)
+        UpdateStatus(status)
+        If Me.InvokeRequired Then
+            Me.Invoke(Sub() progressBar.Value = Math.Min(100, percentage))
+        Else
+            progressBar.Value = Math.Min(100, percentage)
+        End If
+    End Sub
+
+    Private Sub MainForm_FormClosing(sender As Object, e As FormClosingEventArgs) Handles MyBase.FormClosing
+        If httpListener IsNot Nothing AndAlso httpListener.IsListening Then
+            httpListener.Stop()
+            httpListener.Close()
+        End If
+        If backendProcess IsNot Nothing AndAlso Not backendProcess.HasExited Then
+            Try
+                backendProcess.Kill()
+                backendProcess.WaitForExit(3000)
+            Catch
+                ' Ignorar falhas ao finalizar o processo
+            End Try
+        End If
+    End Sub
+End Class
+``` 
+
+---
+
+## ⚙️ Implementando a Auto-Atualização e Sincronização Agendada (Background)
+
+Para executar uma verificação de atualização e sincronização de dados de forma agendada (por exemplo, a cada 2 horas) enquanto a aplicação está em uso, não devemos reutilizar o `UnifiedStartupProcess`.
+
+A abordagem correta é criar um processo "silencioso" que roda em segundo plano, utilizando um `Timer`. Este processo irá:
+
+1.  **Sincronizar Dados**: Executar a carga incremental de dados para manter o banco local atualizado.
+2.  **Verificar Atualizações da Aplicação**: Checar se há uma nova versão dos arquivos da aplicação (backend/frontend).
+3.  **Aplicar Atualização (se houver)**: Baixar e aplicar a nova versão dos arquivos.
+4.  **Notificar o Usuário (se houver atualização)**: Informar ao usuário que uma nova versão foi instalada e que a aplicação precisa ser reiniciada para que as alterações tenham efeito.
+
+### Parte a ser Executada
+
+O núcleo da lógica é executar `sincronizador.RealizarCargaIncremental()` seguido por `updateManager.VerificarAtualizacoes()` e `updateManager.AplicarAtualizacao()`.
+
+### Código de Exemplo
+
+Adicione o código abaixo à sua classe `MainForm`. Ele irá configurar um Timer que dispara o processo de verificação e sincronização em intervalos regulares.
+
+```vbnet
+' Adicione esta declaração no topo da sua classe MainForm
+Private WithEvents updateTimer As System.Windows.Forms.Timer
+
+' Adicione este método para configurar e iniciar o Timer.
+Private Sub SetupScheduledUpdateCheck()
+    updateTimer = New System.Windows.Forms.Timer()
+    ' Define o intervalo para 2 horas (7,200,000 milissegundos)
+    updateTimer.Interval = 7200000 
+    updateTimer.Start()
+    ' Log para confirmar que o agendador iniciou
+    DiagnosticManager.Log("Agendador de atualização e sincronização automática iniciado.")
+End Sub
+
+' Chame o método acima no final do seu MainForm_Load, após a inicialização bem-sucedida.
+' Exemplo:
+' Private Sub MainForm_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+'     InitializeComponents()
+'     Task.Run(AddressOf UnifiedStartupProcess)
+'     SetupScheduledUpdateCheck() ' <--- Adicionar aqui
+' End Sub
+
+
+''' <summary>
+''' Evento disparado pelo Timer para sincronizar dados e verificar atualizações em segundo plano.
+''' </summary>
+Private Async Sub UpdateTimer_Tick(sender As Object, e As EventArgs) Handles updateTimer.Tick
+    ' Para o timer para evitar execuções sobrepostas enquanto uma verificação está em andamento
+    updateTimer.Stop()
+    
+    DiagnosticManager.Log("Iniciando rotina agendada de sincronização e atualização.")
+    
+    Try
+        ' ETAPA 1: Sincronização de dados incremental (silenciosa)
+        DiagnosticManager.Log("Executando sincronização de dados incremental.")
+        Await Task.Run(Sub() sincronizador.RealizarCargaIncremental())
+        DiagnosticManager.Log("Sincronização de dados concluída.")
+
+        ' ETAPA 2: Verificação de atualização da aplicação
+        Dim updateResult = Await updateManager.VerificarAtualizacoes()
+        
+        If updateResult.Success AndAlso updateResult.HasUpdate Then
+            DiagnosticManager.Log($"Nova versão da aplicação encontrada: {updateResult.VersionInfo.Version}. Aplicando em segundo plano.")
+            
+            ' Aplica a atualização de arquivos de forma silenciosa
+            Dim applyResult = Await updateManager.AplicarAtualizacao(updateResult.VersionInfo)
+            
+            If applyResult.Success Then
+                DiagnosticManager.Log("Atualização da aplicação em segundo plano aplicada com sucesso.")
+                ' Notifica o usuário que a atualização de arquivos está pronta e que é necessário reiniciar
+                MessageBox.Show(
+                    "Uma nova versão da aplicação foi instalada em segundo plano." & vbCrLf &
+                    "Por favor, reinicie a aplicação para usar a nova versão.",
+                    "Atualização Concluída",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                )
+            Else
+                DiagnosticManager.Log($"Falha ao aplicar atualização da aplicação em segundo plano: {applyResult.Message}", "ERROR")
+            End If
+        Else
+             DiagnosticManager.Log("Nenhuma nova atualização de aplicação encontrada na verificação agendada.")
+        End If
+        
+    Catch ex As Exception
+        DiagnosticManager.Log($"Erro durante a rotina agendada: {ex.Message}", "ERROR")
+    Finally
+        ' Reinicia o timer para a próxima verificação, independentemente do resultado
+        updateTimer.Start()
+    End Try
+End Sub
+```
+
+### Resumo da Lógica
+
+-   **`SetupScheduledUpdateCheck`**: Configura e inicia o `Timer`.
+-   **`UpdateTimer_Tick`**: Este é o método executado a cada intervalo. Agora ele executa duas tarefas principais:
+    1.  Primeiro, ele sempre chama `RealizarCargaIncremental` para buscar novos dados, mantendo o sistema de IA alimentado.
+    2.  Depois, ele verifica se há uma nova *versão da aplicação*. Apenas se uma nova versão for encontrada e instalada, ele notificará o usuário para reiniciar.
+
+Desta forma, a sincronização de dados ocorre de forma transparente e regular, e a atualização da aplicação acontece quando disponível, com a devida notificação ao usuário. 
