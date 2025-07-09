@@ -1115,3 +1115,314 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 ---
 
 Este documento fornece uma base completa para integrar o sistema SUAT-IA com VB.NET WinForms, incluindo sistema de auto-atualização robusto e distribuição via rede. A solução permite que as estações cliente não precisem ter Node.js instalado e se mantenham sempre atualizadas automaticamente. 
+
+---
+
+## 💾 Exemplo de Código para Sincronização de Dados (VB.NET Puro)
+
+Esta seção fornece um exemplo completo e autocontido em VB.NET para realizar a importação de dados de um banco SQL Server para o banco de dados local SQLite, utilizado pelo SUAT-IA. A lógica de consolidação de dados históricos é feita diretamente em VB.NET, **sem a necessidade de Node.js no ambiente cliente**.
+
+### Pré-requisitos
+
+Para executar este código, você precisará adicionar os pacotes NuGet `System.Data.SQLite` e `System.Data.SqlClient` ao seu projeto VB.NET.
+
+```xml
+<!-- No seu arquivo .vbproj ou via Gerenciador de Pacotes NuGet -->
+<PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
+<PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
+```
+
+### Estrutura do Código
+
+O código está estruturado para ser robusto, reutilizável e fácil de entender.
+
+```vbnet
+Imports System.Data.SqlClient ' Para SQL Server
+Imports System.Data.SQLite   ' Para SQLite
+Imports System.IO
+Imports System.Linq
+Imports System.Collections.Generic
+
+Public Class SincronizadorDados
+
+    ' --- CONFIGURAÇÕES ---
+    Private Const SqlServerConnectionString As String = "Server=SEU_SERVIDOR_SQL;Database=SUA_BASE_DE_DADOS;User Id=SEU_USUARIO;Password=SUA_SENHA;"
+    Private ReadOnly SqLiteConnectionString As String = $"Data Source={Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "backend", "data", "database.sqlite")};Version=3;"
+
+    ' --- PROCESSO 1: CARGA INICIAL (DADOS DE 3 ANOS) ---
+
+    ''' <summary>
+    ''' Executa uma carga completa dos dados dos últimos 3 anos do SQL Server para o SQLite.
+    ''' As tabelas locais são limpas antes da inserção.
+    ''' </summary>
+    Public Sub RealizarCargaInicial()
+        Const selectQuery As String = "
+            SELECT 
+                ID_O, 
+                ASSUNTO_O, 
+                DEPARTAMENTO_O, 
+                GRUPO_DIRECIONADO_O, 
+                CATEGORIA_O, 
+                PRIORIDADE_O, 
+                DATA_CRIACAO_O, 
+                DATA_ENCERRAMENTO_O
+                -- Adicione outras colunas que desejar migrar
+            FROM SUA_TABELA_ORIGEM
+            WHERE DATA_CRIACAO_O >= DATEADD(year, -3, GETDATE())"
+
+        Using sqlConn As New SqlConnection(SqlServerConnectionString)
+            Using sqliteConn As New SQLiteConnection(SqLiteConnectionString)
+                sqlConn.Open()
+                sqliteConn.Open()
+
+                Using transaction As SQLiteTransaction = sqliteConn.BeginTransaction()
+                    ' Limpa as tabelas antes de uma carga completa para evitar duplicatas
+                    Using cmdClear As New SQLiteCommand("DELETE FROM incidents; DELETE FROM historical_data;", sqliteConn)
+                        cmdClear.ExecuteNonQuery()
+                    End Using
+
+                    Dim sqlCmd As New SqlCommand(selectQuery, sqlConn)
+                    Using reader As SqlDataReader = sqlCmd.ExecuteReader()
+                        While reader.Read()
+                            InserirIncidente(reader, sqliteConn)
+                        End While
+                    End Using
+                    transaction.Commit()
+                End Using
+            End Using
+        End Using
+
+        ' Após importar, atualiza a tabela de dados históricos
+        AtualizarDadosHistoricos()
+    End Sub
+
+    ' --- PROCESSO 2: CARGA INCREMENTAL (DADOS NOVOS) ---
+    
+    ''' <summary>
+    ''' Executa uma carga incremental, buscando apenas registros mais recentes que o último importado.
+    ''' </summary>
+    Public Sub RealizarCargaIncremental()
+        Dim ultimaDataImportada As DateTime = ObterDataUltimoRegistro()
+
+        Const selectQuery As String = "
+            SELECT 
+                ID_O, 
+                ASSUNTO_O, 
+                DEPARTAMENTO_O, 
+                GRUPO_DIRECIONADO_O, 
+                CATEGORIA_O, 
+                PRIORIDADE_O, 
+                DATA_CRIACAO_O, 
+                DATA_ENCERRAMENTO_O
+            FROM SUA_TABELA_ORIGEM
+            WHERE DATA_CRIACAO_O > @UltimaData"
+
+        Using sqlConn As New SqlConnection(SqlServerConnectionString)
+            Using sqliteConn As New SQLiteConnection(SqLiteConnectionString)
+                sqlConn.Open()
+                sqliteConn.Open()
+
+                Using transaction As SQLiteTransaction = sqliteConn.BeginTransaction()
+                    Dim sqlCmd As New SqlCommand(selectQuery, sqlConn)
+                    sqlCmd.Parameters.AddWithValue("@UltimaData", ultimaDataImportada)
+
+                    Using reader As SqlDataReader = sqlCmd.ExecuteReader()
+                        While reader.Read()
+                            InserirIncidente(reader, sqliteConn)
+                        End While
+                    End Using
+                    transaction.Commit()
+                End Using
+            End Using
+        End Using
+
+        AtualizarDadosHistoricos()
+    End Sub
+
+    ' --- LÓGICA DE INSERÇÃO ---
+
+    ''' <summary>
+    ''' Insere um único registro de incidente no banco de dados SQLite.
+    ''' </summary>
+    ''' <param name="reader">O leitor de dados do SQL Server.</param>
+    ''' <param name="sqliteConn">A conexão com o SQLite.</param>
+    Private Sub InserirIncidente(reader As SqlDataReader, sqliteConn As SQLiteConnection)
+        ' O campo 'product_id' é preenchido com o grupo direcionado por padrão.
+        ' O campo 'volume' é sempre 1 para incidentes individuais.
+        Const insertSqliteCmdText As String = "
+            INSERT INTO incidents (
+                source_incident_id, product_id, incident_date, DATA_CRIACAO, DATA_ENCERRAMENTO, 
+                CATEGORIA, GRUPO_DIRECIONADO, PRIORIDADE, volume
+            ) VALUES (
+                @SourceId, @ProductId, @IncidentDate, @DataCriacao, @DataEncerramento, 
+                @Categoria, @GrupoDirecionado, @Prioridade, 1
+            )"
+
+        Using cmd As New SQLiteCommand(insertSqliteCmdText, sqliteConn)
+            Dim dataCriacao = GetValueOrNull(Of DateTime)(reader, "DATA_CRIACAO_O")
+
+            cmd.Parameters.AddWithValue("@SourceId", GetValueOrNull(Of Object)(reader, "ID_O"))
+            cmd.Parameters.AddWithValue("@ProductId", GetValueOrNull(Of String)(reader, "GRUPO_DIRECIONADO_O")) ' Usando grupo como product_id
+            cmd.Parameters.AddWithValue("@IncidentDate", dataCriacao?.ToString("yyyy-MM-dd"))
+            cmd.Parameters.AddWithValue("@DataCriacao", dataCriacao?.ToString("o")) ' Formato ISO 8601
+            cmd.Parameters.AddWithValue("@DataEncerramento", GetValueOrNull(Of DateTime)(reader, "DATA_ENCERRAMENTO_O")?.ToString("o"))
+            cmd.Parameters.AddWithValue("@Categoria", GetValueOrNull(Of String)(reader, "CATEGORIA_O"))
+            cmd.Parameters.AddWithValue("@GrupoDirecionado", GetValueOrNull(Of String)(reader, "GRUPO_DIRECIONADO_O"))
+            cmd.Parameters.AddWithValue("@Prioridade", GetValueOrNull(Of String)(reader, "PRIORIDADE_O"))
+            
+            cmd.ExecuteNonQuery()
+        End Using
+    End Sub
+
+    ' --- LÓGICA DE CONSOLIDAÇÃO DE DADOS HISTÓRICOS (VB.NET) ---
+
+    ''' <summary>
+    ''' Replica a lógica do script 'consolidateHistoricalData.js' em VB.NET puro.
+    ''' Popula a tabela 'historical_data' a partir dos dados agregados da tabela 'incidents'.
+    ''' </summary>
+    Private Sub AtualizarDadosHistoricos()
+        Using conn As New SQLiteConnection(SqLiteConnectionString)
+            conn.Open()
+
+            ' 1. Encontrar pares (grupo, data) que ainda não foram processados.
+            Dim pairsToProcess = New List(Of Tuple(Of String, String))()
+            ' A query junta incidents com historical_data para encontrar o que falta processar
+            Const selectPairsQuery As String = "
+                SELECT DISTINCT i.GRUPO_DIRECIONADO, i.incident_date
+                FROM incidents i
+                LEFT JOIN historical_data h ON i.GRUPO_DIRECIONADO = h.group_name AND i.incident_date = h.date
+                WHERE h.id IS NULL AND i.GRUPO_DIRECIONADO IS NOT NULL AND i.incident_date IS NOT NULL"
+
+            Using cmd As New SQLiteCommand(selectPairsQuery, conn)
+                Using reader As SQLiteDataReader = cmd.ExecuteReader()
+                    While reader.Read()
+                        pairsToProcess.Add(Tuple.Create(reader.GetString(0), reader.GetString(1)))
+                    End While
+                End Using
+            End Using
+
+            ' 2. Para cada par, buscar os incidentes, agregar e inserir em 'historical_data'.
+            For Each pair In pairsToProcess
+                Dim groupName = pair.Item1
+                Dim incidentDate = pair.Item2
+
+                Dim incidents As New List(Of IncidentData)()
+                Const selectIncidentsQuery As String = "
+                    SELECT CATEGORIA, PRIORIDADE, DATA_CRIACAO, DATA_ENCERRAMENTO 
+                    FROM incidents 
+                    WHERE GRUPO_DIRECIONADO = @group AND incident_date = @date"
+                
+                Using cmd As New SQLiteCommand(selectIncidentsQuery, conn)
+                    cmd.Parameters.AddWithValue("@group", groupName)
+                    cmd.Parameters.AddWithValue("@date", incidentDate)
+                    Using reader As SQLiteDataReader = cmd.ExecuteReader()
+                        While reader.Read()
+                            incidents.Add(New IncidentData With {
+                                .Categoria = GetReaderValueOrNull(Of String)(reader, 0),
+                                .Prioridade = GetReaderValueOrNull(Of String)(reader, 1),
+                                .DataCriacao = If(reader.IsDBNull(2), CType(Nothing, DateTime?), DateTime.Parse(reader.GetString(2))),
+                                .DataEncerramento = If(reader.IsDBNull(3), CType(Nothing, DateTime?), DateTime.Parse(reader.GetString(3)))
+                            })
+                        End While
+                    End Using
+                End Using
+
+                If incidents.Any() Then
+                    ' 3. Calcular agregações
+                    Dim volume = incidents.Count
+                    Dim mostFrequentCategory = GetMostFrequent(incidents.Select(Function(i) i.Categoria))
+                    Dim mostFrequentPriority = GetMostFrequent(incidents.Select(Function(i) i.Prioridade))
+                    Dim avgResolutionTime = GetAverageResolutionTime(incidents)
+
+                    ' 4. Inserir dados agregados
+                    ' O product_id é preenchido com o nome do grupo para consistência.
+                    Const insertHistoricalQuery As String = "
+                        INSERT INTO historical_data (product_id, group_name, date, volume, category, priority, resolution_time, created_at, updated_at)
+                        VALUES (@productId, @group, @date, @volume, @category, @priority, @resTime, datetime('now', 'localtime'), datetime('now', 'localtime'))
+                        ON CONFLICT(product_id, date) DO UPDATE SET
+                            volume = excluded.volume,
+                            category = excluded.category,
+                            priority = excluded.priority,
+                            resolution_time = excluded.resolution_time,
+                            updated_at = datetime('now', 'localtime');"
+                    
+                    Using cmd As New SQLiteCommand(insertHistoricalQuery, conn)
+                        cmd.Parameters.AddWithValue("@productId", groupName)
+                        cmd.Parameters.AddWithValue("@group", groupName)
+                        cmd.Parameters.AddWithValue("@date", incidentDate)
+                        cmd.Parameters.AddWithValue("@volume", volume)
+                        cmd.Parameters.AddWithValue("@category", CType(mostFrequentCategory, Object) ?? DBNull.Value)
+                        cmd.Parameters.AddWithValue("@priority", CType(mostFrequentPriority, Object) ?? DBNull.Value)
+                        cmd.Parameters.AddWithValue("@resTime", CType(avgResolutionTime, Object) ?? DBNull.Value)
+                        cmd.ExecuteNonQuery()
+                    End Using
+                End If
+            Next
+        End Using
+    End Sub
+    
+    ' --- FUNÇÕES AUXILIARES ---
+
+    ''' <summary>
+    ''' Obtém a data do último incidente registrado no banco de dados local.
+    ''' </summary>
+    Private Function ObterDataUltimoRegistro() As DateTime
+        Using conn As New SQLiteConnection(SqLiteConnectionString)
+            conn.Open()
+            Dim cmd As New SQLiteCommand("SELECT MAX(DATA_CRIACAO) FROM incidents", conn)
+            Dim result = cmd.ExecuteScalar()
+            If result IsNot Nothing AndAlso Not IsDBNull(result) Then
+                Return DateTime.Parse(result.ToString())
+            End If
+            Return DateTime.MinValue
+        End Using
+    End Function
+
+    ''' <summary>
+    ''' Encontra o item mais frequente em uma coleção de strings.
+    ''' </summary>
+    Private Function GetMostFrequent(items As IEnumerable(Of String)) As String
+        If items Is Nothing OrElse Not items.Any() Then Return Nothing
+        Return items.Where(Function(s) Not String.IsNullOrEmpty(s)) _
+                    .GroupBy(Function(s) s) _
+                    .OrderByDescending(Function(g) g.Count()) _
+                    .Select(Function(g) g.Key) _
+                    .FirstOrDefault()
+    End Function
+
+    ''' <summary>
+    ''' Calcula a média do tempo de resolução em minutos.
+    ''' </summary>
+    Private Function GetAverageResolutionTime(incidents As List(Of IncidentData)) As Integer?
+        Dim resolutionTimesInMinutes = incidents _
+            .Where(Function(i) i.DataCriacao.HasValue AndAlso i.DataEncerramento.HasValue) _
+            .Select(Function(i) (i.DataEncerramento.Value - i.DataCriacao.Value).TotalMinutes)
+        
+        If Not resolutionTimesInMinutes.Any() Then Return Nothing
+        Return CInt(Math.Round(resolutionTimesInMinutes.Average()))
+    End Function
+
+    ''' <summary>
+    ''' Obtém o valor de uma coluna do DataReader ou o valor padrão do tipo se for DBNull.
+    ''' </summary>
+    Private Function GetValueOrNull(Of T)(reader As SqlDataReader, columnName As String) As T
+        Dim value = reader(columnName)
+        Return If(value Is DBNull.Value, Nothing, CType(value, T))
+    End Function
+
+    Private Function GetReaderValueOrNull(Of T)(reader As SQLiteDataReader, ordinal As Integer) As T
+        Return If(reader.IsDBNull(ordinal), Nothing, CType(reader.GetValue(ordinal), T))
+    End Function
+
+
+    ' --- CLASSES DE APOIO ---
+
+    Private Class IncidentData
+        Public Property Categoria As String
+        Public Property Prioridade As String
+        Public Property DataCriacao As DateTime?
+        Public Property DataEncerramento As DateTime?
+    End Class
+
+End Class
+``` 
