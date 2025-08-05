@@ -1,6 +1,6 @@
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const User = require('../../domain/entities/User');
+const User = require('../models/User');
 
 class AuthService {
     constructor(userRepository) {
@@ -20,12 +20,12 @@ class AuthService {
         }
 
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role },
+            { id: user.id, username: user.username, role: user.roles ? user.roles[0] : 'user' },
             this.jwtSecret,
             { expiresIn: '8h' }
         );
 
-        return { token, user: { id: user.id, username: user.username, role: user.role } };
+        return { token, user: { id: user.id, username: user.username, role: user.roles ? user.roles[0] : 'user' } };
     }
 
     async register(username, password, role = 'user') {
@@ -35,10 +35,14 @@ class AuthService {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const user = new User(null, username, hashedPassword, role);
+        const user = new User({
+            username: username,
+            password: hashedPassword,
+            roles: [role]
+        });
         
         const savedUser = await this.userRepository.save(user);
-        return { id: savedUser.id, username: savedUser.username, role: savedUser.role };
+        return { id: savedUser.id, username: savedUser.username, role: savedUser.roles[0] };
     }
 }
 

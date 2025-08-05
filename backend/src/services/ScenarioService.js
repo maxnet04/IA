@@ -1,5 +1,5 @@
-const { HistoricalDataRepository } = require('../infrastructure/database/HistoricalDataRepository');
-const { IncidentRepository } = require('../infrastructure/database/IncidentRepository');
+const HistoricalDataRepository = require('../repositories/HistoricalDataRepository');
+const IncidentRepository = require('../repositories/IncidentRepository');
 
 class ScenarioService {
   constructor() {

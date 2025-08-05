@@ -21,9 +21,20 @@ class BaseRepository {
      */
     async query(query, params = []) {
         return new Promise((resolve, reject) => {
+            console.log('[BASE-REPOSITORY] Executando query:', query.substring(0, 100) + '...');
+            console.log('[BASE-REPOSITORY] Parâmetros:', params);
+            console.log('[BASE-REPOSITORY] Database instance existe:', !!this._db);
+            
             this._db.all(query, params, (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows || []);
+                if (err) {
+                    console.error('[BASE-REPOSITORY] ❌ Erro na query:', err.message);
+                    console.error('[BASE-REPOSITORY] Código do erro:', err.code);
+                    console.error('[BASE-REPOSITORY] Query que falhou:', query);
+                    reject(err);
+                } else {
+                    console.log('[BASE-REPOSITORY] ✅ Query executada, linhas retornadas:', (rows || []).length);
+                    resolve(rows || []);
+                }
             });
         });
     }
@@ -36,9 +47,17 @@ class BaseRepository {
      */
     async queryOne(query, params = []) {
         return new Promise((resolve, reject) => {
+            console.log('[BASE-REPOSITORY] Executando queryOne:', query.substring(0, 100) + '...');
+            
             this._db.get(query, params, (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
+                if (err) {
+                    console.error('[BASE-REPOSITORY] ❌ Erro no queryOne:', err.message);
+                    console.error('[BASE-REPOSITORY] Código do erro:', err.code);
+                    reject(err);
+                } else {
+                    console.log('[BASE-REPOSITORY] ✅ QueryOne executada, resultado:', !!row);
+                    resolve(row);
+                }
             });
         });
     }
@@ -51,12 +70,20 @@ class BaseRepository {
      */
     async execute(query, params = []) {
         return new Promise((resolve, reject) => {
+            console.log('[BASE-REPOSITORY] Executando execute:', query.substring(0, 100) + '...');
+            
             this._db.run(query, params, function(err) {
-                if (err) reject(err);
-                else resolve({
-                    lastID: this.lastID,
-                    changes: this.changes
-                });
+                if (err) {
+                    console.error('[BASE-REPOSITORY] ❌ Erro no execute:', err.message);
+                    console.error('[BASE-REPOSITORY] Código do erro:', err.code);
+                    reject(err);
+                } else {
+                    console.log('[BASE-REPOSITORY] ✅ Execute executado, changes:', this.changes, 'lastID:', this.lastID);
+                    resolve({
+                        lastID: this.lastID,
+                        changes: this.changes
+                    });
+                }
             });
         });
     }

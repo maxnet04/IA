@@ -1,5 +1,5 @@
-const IncidentRepository = require('../../infrastructure/database/repository/IncidentRepository');
-const logger = require('../../infrastructure/logging/logger');
+const IncidentRepository = require('../repositories/IncidentRepository');
+const logger = require('../utils/logger');
 
 class IncidentService {
     constructor() {

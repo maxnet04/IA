@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+const { getConnection, dbPath } = require('../config/database');
 
 class DatabaseManager {
     constructor() {
@@ -27,18 +28,58 @@ class DatabaseManager {
 
     getDatabase() {
         if (!this._db) {
+            console.log('[DATABASE-MANAGER] === OBTENDO CONEXÃO ===');
+            console.log('[DATABASE-MANAGER] Modo PKG:', process.pkg !== undefined);
+            console.log('[DATABASE-MANAGER] NODE_ENV:', process.env.NODE_ENV);
+            
             if (process.env.NODE_ENV === 'test') {
+                console.log('[DATABASE-MANAGER] Usando banco em memória para testes');
                 this._db = new sqlite3.Database(':memory:');
             } else {
-                const dbPath = path.join(__dirname, '../../data/database.sqlite');
-                const dataDir = path.dirname(dbPath);
-                if (!fs.existsSync(dataDir)) {
-                    fs.mkdirSync(dataDir, { recursive: true });
-                }
-                this._db = new sqlite3.Database(dbPath);
+                console.log('[DATABASE-MANAGER] Criando conexão direta...');
+                this._createDirectConnection();
             }
         }
         return this._db;
+    }
+
+    _createDirectConnection() {
+        const isPkg = process.pkg !== undefined;
+        console.log('[DATABASE-MANAGER] Modo PKG detectado:', isPkg);
+        
+        let finalDbPath;
+        
+        if (isPkg) {
+            console.log('[DATABASE-MANAGER] ✅ Usando caminho do database-wrapper para PKG');
+            finalDbPath = dbPath; // Usa o caminho do wrapper (temporário)
+            console.log('[DATABASE-MANAGER] Caminho do wrapper:', finalDbPath);
+        } else {
+            console.log('[DATABASE-MANAGER] Usando caminho normal para desenvolvimento');
+            finalDbPath = path.join(__dirname, '../../data/database.sqlite');
+            const dataDir = path.dirname(finalDbPath);
+            if (!fs.existsSync(dataDir)) {
+                console.log('[DATABASE-MANAGER] Criando diretório:', dataDir);
+                fs.mkdirSync(dataDir, { recursive: true });
+            }
+        }
+        
+        console.log('[DATABASE-MANAGER] Caminho final do banco:', finalDbPath);
+        console.log('[DATABASE-MANAGER] Arquivo existe:', fs.existsSync(finalDbPath));
+        
+        if (fs.existsSync(finalDbPath)) {
+            const stats = fs.statSync(finalDbPath);
+            console.log('[DATABASE-MANAGER] Tamanho do arquivo:', stats.size, 'bytes');
+        }
+        
+        console.log('[DATABASE-MANAGER] Criando instância SQLite...');
+        this._db = new sqlite3.Database(finalDbPath, (err) => {
+            if (err) {
+                console.error('[DATABASE-MANAGER] ❌ Erro na conexão DatabaseManager:', err.message);
+                console.error('[DATABASE-MANAGER] Código do erro:', err.code);
+            } else {
+                console.log('[DATABASE-MANAGER] ✅ DatabaseManager conectado com sucesso!');
+            }
+        });
     }
 
     async init() {

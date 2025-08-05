@@ -13,7 +13,7 @@ class DatabaseInitializer {
      */
     async loadRepositories() {
         try {
-            const repositoriesPath = path.join(__dirname, '../../repositories');
+            const repositoriesPath = path.join(__dirname, '../repositories');
             const files = fs.readdirSync(repositoriesPath);
             
             for (const file of files) {

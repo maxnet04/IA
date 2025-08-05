@@ -3,11 +3,27 @@
   "version": "1.0.0",
   "description": "Backend do SUAT IA com funcionalidades de análise preditiva",
   "main": "src/server.js",
+  "bin": "src/server.js",
+  "pkg": {
+    "targets": ["node16-win-x64"],
+    "outputPath": "dist",
+    "assets": [
+      "src/**/*",
+      "node_modules/sqlite3/**/*"
+    ],
+    "scripts": [
+      "src/**/*.js"
+    ],
+    "options": [
+      "experimental-modules"
+    ]
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "dev:win": "nodemon .\\src\\server.js",
-    "test": "jest"
+    "test": "jest",
+    "build": "pkg . --output suat-backend-new.exe && if exist suat-backend.exe del suat-backend.exe && ren suat-backend-new.exe suat-backend.exe && if not exist data mkdir data && copy data\\database.sqlite data\\database.sqlite >nul 2>&1"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -23,6 +39,7 @@
   "devDependencies": {
     "axios": "^1.9.0",
     "jest": "^29.7.0",
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "pkg": "^5.8.1"
   }
 }
