@@ -38,7 +38,7 @@ backend/integracao/
 
 - **Visual Studio 2017/2019/2022** ou **Build Tools**
 - **.NET Framework 4.7** ou superior
-- **Banco SQLite** do SUAT-IA (geralmente em `../data/database.sqlite`)
+- **Banco SQLite** do SUAT-IA localizado em `../data/database.sqlite` (caminho relativo configurado automaticamente)
 
 ### 2. Compilação
 
@@ -96,6 +96,24 @@ Executa uma query SQL personalizada:
 Exibe ajuda e exemplos de uso.
 
 ## ⚙️ Configuração
+
+### Configuração do Banco de Dados
+
+O sistema está configurado para usar um **caminho relativo** para o banco SQLite:
+
+- **Localização**: `../data/database.sqlite` (relativo à pasta `integracao`)
+- **Configuração**: Automática - não requer alterações no código
+- **Compatibilidade**: Funciona em qualquer ambiente onde a estrutura de pastas seja mantida
+
+#### Estrutura de Pastas Esperada:
+```
+backend/
+├── integracao/           # Pasta atual do projeto
+│   ├── SuatDatabaseManager.exe
+│   └── ...
+└── data/                 # Pasta do banco de dados
+    └── database.sqlite   # Arquivo do banco SQLite
+```
 
 ### Dados de Teste
 

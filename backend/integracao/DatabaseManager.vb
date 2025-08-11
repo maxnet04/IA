@@ -12,8 +12,8 @@ Public Class DatabaseManager
     
     Public Sub New(Optional dbPath As String = Nothing)
         If String.IsNullOrEmpty(dbPath) Then
-            ' Caminho específico do banco de dados
-            databasePath = "C:\Users\MAX\Documents\workspace\IA\backend\data\database.sqlite"
+            ' Caminho relativo ao banco de dados (voltando um nível para a pasta data)
+            databasePath = Path.Combine(Directory.GetCurrentDirectory(), "..", "data", "database.sqlite")
             
             ' Verificar se o arquivo existe
             If Not File.Exists(databasePath) Then
