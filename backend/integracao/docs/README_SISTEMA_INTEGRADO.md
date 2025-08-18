@@ -170,3 +170,4 @@ O sistema de atualizações foi integrado para:
 - ✅ Sistema de atualizações automáticas
 
 **Execute `SuatDatabaseManager.exe` e tenha todo o sistema funcionando!** 🚀
+

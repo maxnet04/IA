@@ -55,6 +55,17 @@ app.use(express.json());
         res.send(swaggerSpec);
     });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development',
+        version: '1.0.0'
+    });
+});
+
 // Rotas da API
 app.use('/api', routes);
 

@@ -53,3 +53,4 @@ echo Feche as janelas para parar os serviços
 echo.
 pause
 
+

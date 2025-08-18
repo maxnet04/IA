@@ -5,6 +5,7 @@ Imports Newtonsoft.Json
 Imports System.IO
 Imports System.Diagnostics
 Imports System.Windows.Forms
+Imports System.Collections.Generic
 
 ''' <summary>
 ''' Gerenciador de atualizações automáticas para o sistema SUAT-IA
@@ -14,8 +15,19 @@ Public Class UpdateManager
     Private Const NETWORK_PATH As String = "\\servidor\suat\updates"
     Private Const LOCAL_VERSION_FILE As String = "version.local"
     Private ReadOnly httpClient As New HttpClient()
+    Private ReadOnly portManager As PortManager
     
     Public Event ProgressChanged(percentage As Integer, status As String)
+    
+    Public Sub New()
+        portManager = New PortManager()
+        ' Conectar eventos do PortManager para o ProgressChanged
+        AddHandler portManager.PortStatusChanged, AddressOf OnPortStatusChanged
+    End Sub
+    
+    Private Sub OnPortStatusChanged(port As Integer, status As String)
+        RaiseEvent ProgressChanged(0, status)
+    End Sub
     
     ''' <summary>
     ''' Verifica se há atualizações disponíveis no servidor
@@ -71,6 +83,9 @@ Public Class UpdateManager
     Public Async Function AplicarAtualizacao(versionInfo As VersionInfo) As Task(Of UpdateResult)
         Try
             RaiseEvent ProgressChanged(0, "Iniciando atualização...")
+            
+            ' Verificar e liberar portas antes de iniciar
+            portManager.FreeAllSystemPorts()
             
             ' Criar pasta temporária
             Dim tempDir = Path.Combine(Path.GetTempPath(), "suat-update-" & Guid.NewGuid().ToString())
@@ -336,6 +351,8 @@ Public Class UpdateManager
         File.WriteAllText(versionFile, version)
     End Sub
     
+
+    
     ''' <summary>
     ''' Para o processo do backend
     ''' </summary>
@@ -348,6 +365,32 @@ Public Class UpdateManager
                 ' Ignorar erros ao finalizar processo
             End Try
         Next
+    End Sub
+    
+    ''' <summary>
+    ''' Verifica e libera as portas do sistema (método público)
+    ''' </summary>
+    Public Sub VerificarPortasSistema()
+        Try
+            RaiseEvent ProgressChanged(0, "🔍 Iniciando verificação de portas do sistema...")
+            portManager.FreeAllSystemPorts()
+            RaiseEvent ProgressChanged(100, "✅ Verificação de portas concluída com sucesso")
+        Catch ex As Exception
+            RaiseEvent ProgressChanged(0, $"❌ Erro na verificação de portas: {ex.Message}")
+        End Try
+    End Sub
+    
+    ''' <summary>
+    ''' Verifica e libera uma porta específica (método público)
+    ''' </summary>
+    Public Sub VerificarPortaEspecifica(porta As Integer)
+        Try
+            RaiseEvent ProgressChanged(0, $"🔍 Verificando porta {porta}...")
+            portManager.FreePort(porta)
+            RaiseEvent ProgressChanged(100, $"✅ Verificação da porta {porta} concluída")
+        Catch ex As Exception
+            RaiseEvent ProgressChanged(0, $"❌ Erro na verificação da porta {porta}: {ex.Message}")
+        End Try
     End Sub
     
     ''' <summary>

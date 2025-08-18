@@ -246,3 +246,4 @@ O `UpdateManager` foi integrado para:
 - **Logs**: Disponíveis na interface do orquestrador
 
 **Sistema SUAT-IA: Do desenvolvimento à produção em um único arquivo!** 🎯
+

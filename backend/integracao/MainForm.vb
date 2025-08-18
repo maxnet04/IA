@@ -21,6 +21,7 @@ Public Class MainForm
     Private btnCargaIncremental As Button
     Private btnSincronizacaoInteligente As Button
     Private btnCriarVersaoTeste As Button
+    Private btnVerificarPortas As Button
     Private btnIniciarFrontend As Button
     Private btnPararFrontend As Button
     Private btnAbrirBrowser As Button
@@ -34,6 +35,7 @@ Public Class MainForm
     
     ' --- Gerenciadores de Lógica ---
     Private updateManager As UpdateManager
+    Private portManager As PortManager
     Private sincronizador As SincronizadorDados
     Private frontendServer As FrontendHttpServer
     Private backendApiManager As BackendApiManager
@@ -116,10 +118,19 @@ Public Class MainForm
         AddHandler btnCriarVersaoTeste.Click, AddressOf btnCriarVersaoTeste_Click
         Me.Controls.Add(btnCriarVersaoTeste)
         
+        btnVerificarPortas = New Button()
+        btnVerificarPortas.Text = "🔍 Verificar Portas"
+        btnVerificarPortas.Location = New Point(20, 125)
+        btnVerificarPortas.Size = New Size(150, 30)
+        btnVerificarPortas.Font = New Font("Segoe UI", 9)
+        btnVerificarPortas.BackColor = Color.LightYellow
+        AddHandler btnVerificarPortas.Click, AddressOf btnVerificarPortas_Click
+        Me.Controls.Add(btnVerificarPortas)
+        
         ' --- Controles do Frontend ---
         lblFrontendStatus = New Label()
         lblFrontendStatus.Text = "Frontend: Não iniciado"
-        lblFrontendStatus.Location = New Point(20, 130)
+        lblFrontendStatus.Location = New Point(190, 130)
         lblFrontendStatus.Size = New Size(200, 20)
         lblFrontendStatus.Font = New Font("Segoe UI", 9, FontStyle.Bold)
         lblFrontendStatus.ForeColor = Color.DarkRed
@@ -127,7 +138,7 @@ Public Class MainForm
         
         btnIniciarFrontend = New Button()
         btnIniciarFrontend.Text = "Iniciar Frontend"
-        btnIniciarFrontend.Location = New Point(230, 125)
+        btnIniciarFrontend.Location = New Point(400, 125)
         btnIniciarFrontend.Size = New Size(110, 30)
         btnIniciarFrontend.Font = New Font("Segoe UI", 9)
         btnIniciarFrontend.BackColor = Color.LightBlue
@@ -136,7 +147,7 @@ Public Class MainForm
         
         btnPararFrontend = New Button()
         btnPararFrontend.Text = "Parar Frontend"
-        btnPararFrontend.Location = New Point(350, 125)
+        btnPararFrontend.Location = New Point(520, 125)
         btnPararFrontend.Size = New Size(110, 30)
         btnPararFrontend.Font = New Font("Segoe UI", 9)
         btnPararFrontend.BackColor = Color.LightCoral
@@ -146,7 +157,7 @@ Public Class MainForm
         
         btnAbrirBrowser = New Button()
         btnAbrirBrowser.Text = "Abrir no Browser"
-        btnAbrirBrowser.Location = New Point(470, 125)
+        btnAbrirBrowser.Location = New Point(640, 125)
         btnAbrirBrowser.Size = New Size(120, 30)
         btnAbrirBrowser.Font = New Font("Segoe UI", 9)
         btnAbrirBrowser.BackColor = Color.LightGreen
@@ -245,6 +256,7 @@ Public Class MainForm
     ''' </summary>
     Private Sub InitializeManagers()
         updateManager = New UpdateManager()
+        portManager = New PortManager()
         sincronizador = New SincronizadorDados()
         
         ' Inicializar servidor frontend
@@ -257,6 +269,7 @@ Public Class MainForm
         
         ' Conectar eventos
         AddHandler updateManager.ProgressChanged, AddressOf OnUpdateProgress
+        AddHandler portManager.PortStatusChanged, AddressOf OnPortStatusChanged
         AddHandler frontendServer.StatusChanged, AddressOf OnFrontendStatusChanged
         AddHandler frontendServer.ServerStarted, AddressOf OnFrontendServerStarted
         AddHandler frontendServer.ServerStopped, AddressOf OnFrontendServerStopped
@@ -413,6 +426,32 @@ Public Class MainForm
     End Sub
     
     ''' <summary>
+    ''' Evento de clique no botão Verificar Portas
+    ''' </summary>
+    Private Sub btnVerificarPortas_Click(sender As Object, e As EventArgs)
+        Try
+            btnVerificarPortas.Enabled = False
+            UpdateStatus("Verificando portas do sistema...")
+            
+            ' Executar verificação de portas usando PortManager diretamente
+            portManager.FreeAllSystemPorts()
+            
+            ' Habilitar botão após um delay
+            Task.Delay(3000).ContinueWith(Sub()
+                Me.Invoke(Sub()
+                    btnVerificarPortas.Enabled = True
+                    UpdateStatus("Verificação de portas concluída")
+                End Sub)
+            End Sub)
+            
+        Catch ex As Exception
+            MessageBox.Show($"Erro ao verificar portas: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            btnVerificarPortas.Enabled = True
+            UpdateStatus("Erro na verificação de portas")
+        End Try
+    End Sub
+    
+    ''' <summary>
     ''' Evento de clique no botão Criar Versão Teste
     ''' </summary>
     Private Sub btnCriarVersaoTeste_Click(sender As Object, e As EventArgs)
@@ -464,6 +503,14 @@ Public Class MainForm
     End Sub
     
     ''' <summary>
+    ''' Evento de status das portas
+    ''' </summary>
+    Private Sub OnPortStatusChanged(port As Integer, status As String)
+        UpdateStatus(status)
+        Console.WriteLine($"[Porta {port}] {status}")
+    End Sub
+    
+    ''' <summary>
     ''' Evento de carregamento do formulário
     ''' </summary>
     Private Sub MainForm_Load(sender As Object, e As EventArgs) Handles MyBase.Load
@@ -474,11 +521,13 @@ Public Class MainForm
         Console.WriteLine()
         Console.WriteLine("Sistema iniciado com sucesso!")
         Console.WriteLine("Use os botões para testar as funcionalidades:")
+        Console.WriteLine("- 🔍 Verificar Portas: Verifica e libera portas em uso")
         Console.WriteLine("- Verificar Atualizações: Testa o sistema de auto-atualização")
         Console.WriteLine("- Carga Inicial: Simula carga de 3 anos de dados")
         Console.WriteLine("- Carga Incremental: Simula carga de dados recentes")
         Console.WriteLine("- Sincronização Inteligente: Detecta automaticamente se é nova instalação ou atualização")
         Console.WriteLine("- Criar Versão Teste: Cria arquivo de versão para testes")
+        Console.WriteLine("- 🚀 INICIAR SISTEMA COMPLETO: Inicia tudo automaticamente (inclui verificação de portas)")
         Console.WriteLine()
     End Sub
     
@@ -717,8 +766,15 @@ Public Class MainForm
             Console.WriteLine("🚀 ======================================")
             Console.WriteLine()
             
+            ' 0. Verificar e liberar portas antes de iniciar
+            Console.WriteLine("🔍 Passo 0/3: Verificando portas do sistema...")
+            portManager.FreeAllSystemPorts()
+            Await Task.Delay(3000) ' Aguardar verificação completar
+            Console.WriteLine("✅ Verificação de portas concluída!")
+            Console.WriteLine()
+            
             ' 1. Iniciar Backend API
-            Console.WriteLine("🔥 Passo 1/2: Iniciando Backend API...")
+            Console.WriteLine("🔥 Passo 1/3: Iniciando Backend API...")
             If Await backendApiManager.StartAsync() Then
                 btnIniciarBackend.Enabled = False
                 btnPararBackend.Enabled = True
@@ -734,7 +790,7 @@ Public Class MainForm
             Await Task.Delay(2000)
             
             ' 2. Iniciar Frontend Server
-            Console.WriteLine("🔥 Passo 2/2: Iniciando Frontend Server...")
+            Console.WriteLine("🔥 Passo 2/3: Iniciando Frontend Server...")
             If Await frontendServer.StartAsync() Then
                 btnIniciarFrontend.Enabled = False
                 btnPararFrontend.Enabled = True
@@ -757,6 +813,7 @@ Public Class MainForm
             ' Mostrar dialog de sucesso
             Dim result = MessageBox.Show(
                 "Sistema SUAT-IA iniciado com sucesso!" & vbNewLine & vbNewLine &
+                "🔍 Portas verificadas e liberadas automaticamente" & vbNewLine &
                 "✅ Backend API: http://localhost:3000" & vbNewLine &
                 "✅ Frontend: http://localhost:8080" & vbNewLine &
                 "✅ Swagger: http://localhost:3000/api-docs" & vbNewLine & vbNewLine &
