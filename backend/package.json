@@ -5,7 +5,7 @@
   "main": "src/server.js",
   "bin": "src/server.js",
   "pkg": {
-    "targets": ["node16-win-x64"],
+    "targets": ["node16-win-x64", "node16-win-x86"],
     "outputPath": "dist",
     "assets": [
       "src/**/*",
@@ -23,7 +23,11 @@
     "dev": "nodemon src/server.js",
     "dev:win": "nodemon .\\src\\server.js",
     "test": "jest",
-    "build": "pkg . --output suat-backend-new.exe && if exist suat-backend.exe del suat-backend.exe && ren suat-backend-new.exe suat-backend.exe && if not exist data mkdir data && copy data\\database.sqlite data\\database.sqlite >nul 2>&1"
+    "build": "pkg . --output suat-backend-new.exe && if exist suat-backend.exe del suat-backend.exe && ren suat-backend-new.exe suat-backend.exe && if not exist data mkdir data && copy data\\database.sqlite data\\database.sqlite >nul 2>&1",
+    "build:64": "pkg . --target node16-win-x64 --output dist/suat-backend-x64.exe",
+    "build:32": "pkg . --target node16-win-x86 --output dist/suat-backend-x86.exe",
+    "build:all": "npm run build:64 && npm run build:32",
+    "build:clean": "if exist dist rmdir /s /q dist && mkdir dist && npm run build:all"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
