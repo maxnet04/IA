@@ -1,35 +1,35 @@
 Imports System
-Imports System.IO
-Imports System.Linq
+Imports System.Windows.Forms
 
 Module Program
     ''' <summary>
-    ''' Ponto de entrada principal da aplicação de console.
+    ''' Ponto de entrada principal da aplicação WinForms
     ''' </summary>
+    <STAThread>
     Sub Main(args As String())
         Try
-            Console.WriteLine("========================================")
-            Console.WriteLine("    SUAT Database Manager v1.0")
-            Console.WriteLine("    .NET Framework 4.7 - Console App")
-            Console.WriteLine("========================================")
-            Console.WriteLine()
-
+            ' Configurar aplicação
+            Application.EnableVisualStyles()
+            Application.SetCompatibleTextRenderingDefault(False)
+            
             ' Verificar argumentos da linha de comando
             If args.Length > 0 Then
                 ProcessarArgumentos(args)
             Else
-                MostrarMenu()
+                ' Iniciar aplicação WinForms
+                Application.Run(New MainForm())
             End If
 
         Catch ex As Exception
-            Console.WriteLine(String.Format("❌ Erro crítico: {0}", ex.Message))
-            Console.WriteLine("Pressione qualquer tecla para sair...")
-            Console.ReadKey()
+            MessageBox.Show($"Erro crítico: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 
     Private Sub ProcessarArgumentos(args As String())
         Select Case args(0).ToLower()
+            Case "console"
+                ' Modo console para compatibilidade
+                ExecutarModoConsole()
             Case "connect"
                 ExecutarConexao()
             Case "verify"
@@ -53,6 +53,27 @@ Module Program
         End Select
     End Sub
 
+    Private Sub ExecutarModoConsole()
+        Console.WriteLine("========================================")
+        Console.WriteLine("    SUAT Database Manager v1.0")
+        Console.WriteLine("    .NET Framework 4.7 - Console Mode")
+        Console.WriteLine("========================================")
+        Console.WriteLine()
+
+        MostrarMenu()
+        
+        Dim comando As String
+        Do
+            Console.Write("Digite um comando (ou 'exit' para sair): ")
+            comando = Console.ReadLine()
+            
+            If Not String.IsNullOrEmpty(comando) Then
+                Dim args = comando.Split(" "c)
+                ProcessarArgumentos(args)
+            End If
+        Loop While comando?.ToLower() <> "exit"
+    End Sub
+
     Private Sub MostrarMenu()
         Console.WriteLine("Comandos disponíveis:")
         Console.WriteLine("  connect  - Conectar ao banco SQLite")
@@ -60,8 +81,9 @@ Module Program
         Console.WriteLine("  sync     - Sincronizar dados (teste)")
         Console.WriteLine("  query    - Executar query SQL")
         Console.WriteLine("  help     - Mostrar esta ajuda")
+        Console.WriteLine("  exit     - Sair do modo console")
         Console.WriteLine()
-        Console.WriteLine("Exemplo: SuatDatabaseManager.exe sync")
+        Console.WriteLine("Exemplo: SuatDatabaseManager.exe console")
         Console.WriteLine()
     End Sub
 
@@ -69,6 +91,8 @@ Module Program
         Console.WriteLine("Uso: SuatDatabaseManager.exe [comando] [opções]")
         Console.WriteLine()
         Console.WriteLine("Comandos:")
+        Console.WriteLine("  (sem argumentos)           Iniciar interface gráfica")
+        Console.WriteLine("  console                    Iniciar modo console interativo")
         Console.WriteLine("  connect                    Conectar ao banco SQLite")
         Console.WriteLine("  verify                     Verificar estrutura do banco")
         Console.WriteLine("  sync                       Sincronizar dados (teste)")
@@ -76,6 +100,8 @@ Module Program
         Console.WriteLine("  help                       Mostrar esta ajuda")
         Console.WriteLine()
         Console.WriteLine("Exemplos:")
+        Console.WriteLine("  SuatDatabaseManager.exe                    # Interface gráfica")
+        Console.WriteLine("  SuatDatabaseManager.exe console            # Modo console")
         Console.WriteLine("  SuatDatabaseManager.exe connect")
         Console.WriteLine("  SuatDatabaseManager.exe verify")
         Console.WriteLine("  SuatDatabaseManager.exe sync")

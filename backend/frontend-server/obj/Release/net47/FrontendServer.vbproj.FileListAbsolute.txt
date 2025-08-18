@@ -1,0 +1,11 @@
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\bin\Release\net47\suat-frontend-server.exe.config
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\bin\Release\net47\suat-frontend-server.exe
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\bin\Release\net47\suat-frontend-server.pdb
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\obj\Release\net47\FrontendServer.vbproj.AssemblyReference.cache
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\obj\Release\net47\FrontendServer.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\obj\Release\net47\FrontendServer.AssemblyInfoInputs.cache
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\obj\Release\net47\FrontendServer.AssemblyInfo.vb
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\obj\Release\net47\FrontendServer.vbproj.CoreCompileInputs.cache
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\obj\Release\net47\FrontendServer.sourcelink.json
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\obj\Release\net47\suat-frontend-server.exe
+C:\Users\MAX\Documents\workspace\IA\backend\frontend-server\obj\Release\net47\suat-frontend-server.pdb

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "oCAbwrFsdnc=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\MAX\\Documents\\workspace\\IA\\backend\\frontend-server\\FrontendServer.vbproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\MAX\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\MAX\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net47\\1.0.3\\microsoft.netframework.referenceassemblies.net47.1.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -13,8 +13,8 @@ Public Class DatabaseManager
     Public Sub New(Optional dbPath As String = Nothing)
         If String.IsNullOrEmpty(dbPath) Then
             ' Caminho relativo ao banco de dados (voltando um nível para a pasta data)
-            databasePath = Path.Combine(Directory.GetCurrentDirectory(), "..", "data", "database.sqlite")
-            
+            databasePath = Path.Combine(Directory.GetCurrentDirectory(), "data", "database.sqlite")
+
             ' Verificar se o arquivo existe
             If Not File.Exists(databasePath) Then
                 Throw New FileNotFoundException(String.Format("Banco de dados SQLite não encontrado em: {0}", databasePath))
@@ -46,7 +46,7 @@ Public Class DatabaseManager
                 totalTabelas = Convert.ToInt32(cmd.ExecuteScalar())
             End Using
             
-            Dim fileInfo As New FileInfo(databasePath)
+            Dim fileInfo As New System.IO.FileInfo(databasePath)
             
             Return New ConexaoResult With {
                 .Success = True,
@@ -166,6 +166,430 @@ Public Class DatabaseManager
     End Function
     
     ''' <summary>
+    ''' Executa um comando INSERT na tabela especificada
+    ''' </summary>
+    Public Function ExecutarInsert(tabela As String, dados As Dictionary(Of String, Object)) As ComandoResult
+        Try
+            If connection Is Nothing OrElse connection.State <> ConnectionState.Open Then
+                Dim conexaoResult = Conectar()
+                If Not conexaoResult.Success Then
+                    Return New ComandoResult With {
+                        .Success = False,
+                        .Mensagem = conexaoResult.Mensagem
+                    }
+                End If
+            End If
+            
+            If dados Is Nothing OrElse dados.Count = 0 Then
+                Return New ComandoResult With {
+                    .Success = False,
+                    .Mensagem = "Dados não fornecidos para inserção"
+                }
+            End If
+            
+            ' Construir query INSERT
+            Dim colunas As String = String.Join(", ", dados.Keys.Select(Function(k) $"[{k}]"))
+            Dim parametros As String = String.Join(", ", dados.Keys.Select(Function(k) $"@{k}"))
+            Dim query As String = $"INSERT INTO [{tabela}] ({colunas}) VALUES ({parametros})"
+            
+            Dim linhasAfetadas As Integer = 0
+            
+            Using cmd As New SQLiteCommand(query, connection)
+                ' Adicionar parâmetros
+                For Each kvp In dados
+                    cmd.Parameters.AddWithValue($"@{kvp.Key}", If(kvp.Value, DBNull.Value))
+                Next
+                
+                linhasAfetadas = cmd.ExecuteNonQuery()
+            End Using
+            
+            Return New ComandoResult With {
+                .Success = True,
+                .Mensagem = $"Inserção realizada com sucesso. {linhasAfetadas} linha(s) afetada(s)",
+                .LinhasAfetadas = linhasAfetadas
+            }
+            
+        Catch ex As Exception
+            Return New ComandoResult With {
+                .Success = False,
+                .Mensagem = $"Erro na inserção: {ex.Message}"
+            }
+        End Try
+    End Function
+    
+    ''' <summary>
+    ''' Executa um comando UPDATE na tabela especificada
+    ''' </summary>
+    Public Function ExecutarUpdate(tabela As String, dados As Dictionary(Of String, Object), condicao As String, parametrosCondicao As Dictionary(Of String, Object)) As ComandoResult
+        Try
+            If connection Is Nothing OrElse connection.State <> ConnectionState.Open Then
+                Dim conexaoResult = Conectar()
+                If Not conexaoResult.Success Then
+                    Return New ComandoResult With {
+                        .Success = False,
+                        .Mensagem = conexaoResult.Mensagem
+                    }
+                End If
+            End If
+            
+            If dados Is Nothing OrElse dados.Count = 0 Then
+                Return New ComandoResult With {
+                    .Success = False,
+                    .Mensagem = "Dados não fornecidos para atualização"
+                }
+            End If
+            
+            ' Construir query UPDATE
+            Dim setClause As String = String.Join(", ", dados.Keys.Select(Function(k) $"[{k}] = @set_{k}"))
+            Dim query As String = $"UPDATE [{tabela}] SET {setClause}"
+            
+            If Not String.IsNullOrEmpty(condicao) Then
+                query &= $" WHERE {condicao}"
+            End If
+            
+            Dim linhasAfetadas As Integer = 0
+            
+            Using cmd As New SQLiteCommand(query, connection)
+                ' Adicionar parâmetros de SET
+                For Each kvp In dados
+                    cmd.Parameters.AddWithValue($"@set_{kvp.Key}", If(kvp.Value, DBNull.Value))
+                Next
+                
+                ' Adicionar parâmetros da condição WHERE
+                If parametrosCondicao IsNot Nothing Then
+                    For Each kvp In parametrosCondicao
+                        cmd.Parameters.AddWithValue($"@{kvp.Key}", If(kvp.Value, DBNull.Value))
+                    Next
+                End If
+                
+                linhasAfetadas = cmd.ExecuteNonQuery()
+            End Using
+            
+            Return New ComandoResult With {
+                .Success = True,
+                .Mensagem = $"Atualização realizada com sucesso. {linhasAfetadas} linha(s) afetada(s)",
+                .LinhasAfetadas = linhasAfetadas
+            }
+            
+        Catch ex As Exception
+            Return New ComandoResult With {
+                .Success = False,
+                .Mensagem = $"Erro na atualização: {ex.Message}"
+            }
+        End Try
+    End Function
+    
+    ''' <summary>
+    ''' Executa um comando DELETE na tabela especificada
+    ''' </summary>
+    Public Function ExecutarDelete(tabela As String, condicao As String, parametrosCondicao As Dictionary(Of String, Object)) As ComandoResult
+        Try
+            If connection Is Nothing OrElse connection.State <> ConnectionState.Open Then
+                Dim conexaoResult = Conectar()
+                If Not conexaoResult.Success Then
+                    Return New ComandoResult With {
+                        .Success = False,
+                        .Mensagem = conexaoResult.Mensagem
+                    }
+                End If
+            End If
+            
+            ' Construir query DELETE
+            Dim query As String = $"DELETE FROM [{tabela}]"
+            
+            If Not String.IsNullOrEmpty(condicao) Then
+                query &= $" WHERE {condicao}"
+            End If
+            
+            Dim linhasAfetadas As Integer = 0
+            
+            Using cmd As New SQLiteCommand(query, connection)
+                ' Adicionar parâmetros da condição WHERE
+                If parametrosCondicao IsNot Nothing Then
+                    For Each kvp In parametrosCondicao
+                        cmd.Parameters.AddWithValue($"@{kvp.Key}", If(kvp.Value, DBNull.Value))
+                    Next
+                End If
+                
+                linhasAfetadas = cmd.ExecuteNonQuery()
+            End Using
+            
+            Return New ComandoResult With {
+                .Success = True,
+                .Mensagem = $"Exclusão realizada com sucesso. {linhasAfetadas} linha(s) afetada(s)",
+                .LinhasAfetadas = linhasAfetadas
+            }
+            
+        Catch ex As Exception
+            Return New ComandoResult With {
+                .Success = False,
+                .Mensagem = $"Erro na exclusão: {ex.Message}"
+            }
+        End Try
+    End Function
+    
+    ''' <summary>
+    ''' Executa um comando SQL que não retorna dados (INSERT, UPDATE, DELETE)
+    ''' </summary>
+    Public Function ExecutarComando(query As String, parametros As Dictionary(Of String, Object)) As ComandoResult
+        Try
+            If connection Is Nothing OrElse connection.State <> ConnectionState.Open Then
+                Dim conexaoResult = Conectar()
+                If Not conexaoResult.Success Then
+                    Return New ComandoResult With {
+                        .Success = False,
+                        .Mensagem = conexaoResult.Mensagem
+                    }
+                End If
+            End If
+            
+            Dim linhasAfetadas As Integer = 0
+            
+            Using cmd As New SQLiteCommand(query, connection)
+                ' Adicionar parâmetros se fornecidos
+                If parametros IsNot Nothing Then
+                    For Each kvp In parametros
+                        cmd.Parameters.AddWithValue($"@{kvp.Key}", If(kvp.Value, DBNull.Value))
+                    Next
+                End If
+                
+                linhasAfetadas = cmd.ExecuteNonQuery()
+            End Using
+            
+            Return New ComandoResult With {
+                .Success = True,
+                .Mensagem = $"Comando executado com sucesso. {linhasAfetadas} linha(s) afetada(s)",
+                .LinhasAfetadas = linhasAfetadas
+            }
+            
+        Catch ex As Exception
+            Return New ComandoResult With {
+                .Success = False,
+                .Mensagem = $"Erro no comando: {ex.Message}"
+            }
+        End Try
+    End Function
+    
+    ' ===== MÉTODOS ESPECIALIZADOS PARA SINCRONIZAÇÃO =====
+    
+    ''' <summary>
+    ''' Limpa todos os registros de uma tabela específica
+    ''' </summary>
+    Public Function LimparTabela(nomeTabela As String) As ComandoResult
+        Try
+            If String.IsNullOrWhiteSpace(nomeTabela) Then
+                Return New ComandoResult With {
+                    .Success = False,
+                    .Mensagem = "Nome da tabela não pode ser vazio"
+                }
+            End If
+            
+            If connection Is Nothing OrElse connection.State <> ConnectionState.Open Then
+                Dim conexaoResult = Conectar()
+                If Not conexaoResult.Success Then
+                    Return New ComandoResult With {
+                        .Success = False,
+                        .Mensagem = conexaoResult.Mensagem
+                    }
+                End If
+            End If
+            
+            Dim query As String = $"DELETE FROM [{nomeTabela}]"
+            Return ExecutarComando(query, Nothing)
+            
+        Catch ex As Exception
+            Return New ComandoResult With {
+                .Success = False,
+                .Mensagem = $"Erro ao limpar tabela '{nomeTabela}': {ex.Message}"
+            }
+        End Try
+    End Function
+
+    ''' <summary>
+    ''' Insere um incidente na tabela incidents usando campos individuais
+    ''' </summary>
+    Public Function InserirIncidente(
+        id As String,
+        assunto As String,
+        departamento As String,
+        grupoDirecionado As String,
+        categoria As String,
+        prioridade As String,
+        dataCriacao As DateTime,
+        dataEncerramento As DateTime?) As ComandoResult
+        Try
+            ' Validações de entrada
+            If String.IsNullOrWhiteSpace(grupoDirecionado) Then
+                Return New ComandoResult With {
+                    .Success = False,
+                    .Mensagem = "Grupo direcionado não pode ser vazio"
+                }
+            End If
+
+            If connection Is Nothing OrElse connection.State <> ConnectionState.Open Then
+                Dim conexaoResult = Conectar()
+                If Not conexaoResult.Success Then
+                    Return New ComandoResult With {
+                        .Success = False,
+                        .Mensagem = conexaoResult.Mensagem
+                    }
+                End If
+            End If
+
+            Const insertSql As String = "
+                INSERT INTO incidents (
+                    source_incident_id, product_id, incident_date, DATA_CRIACAO, DATA_ENCERRAMENTO, 
+                    CATEGORIA, GRUPO_DIRECIONADO, PRIORIDADE, volume
+                ) VALUES (
+                    @SourceId, @ProductId, @IncidentDate, @DataCriacao, @DataEncerramento, 
+                    @Categoria, @GrupoDirecionado, @Prioridade, @Volume
+                )"
+
+            Dim parametros As New Dictionary(Of String, Object)()
+            parametros.Add("SourceId", If(String.IsNullOrEmpty(id), DBNull.Value, id))
+            parametros.Add("ProductId", grupoDirecionado)
+            parametros.Add("IncidentDate", dataCriacao.ToString("yyyy-MM-dd"))
+            parametros.Add("DataCriacao", dataCriacao.ToString("o"))
+
+            ' Tratar data de encerramento
+            If dataEncerramento.HasValue Then
+                parametros.Add("DataEncerramento", dataEncerramento.Value.ToString("o"))
+            Else
+                parametros.Add("DataEncerramento", DBNull.Value)
+            End If
+
+            parametros.Add("Categoria", If(String.IsNullOrEmpty(categoria), "Não especificado", categoria))
+            parametros.Add("GrupoDirecionado", grupoDirecionado)
+            parametros.Add("Prioridade", If(String.IsNullOrEmpty(prioridade), "Média", prioridade))
+            parametros.Add("Volume", 1)
+            
+            Return ExecutarComando(insertSql, parametros)
+            
+        Catch ex As Exception
+            Return New ComandoResult With {
+                .Success = False,
+                .Mensagem = $"Erro ao inserir incidente: {ex.Message}"
+            }
+        End Try
+    End Function
+    
+    ''' <summary>
+    ''' Insere ou atualiza um registro na tabela historical_data usando dados agregados
+    ''' </summary>
+    Public Function InserirOuAtualizarDadoHistorico(dadoHistorico As DadoHistorico) As ComandoResult
+        Try
+            ' Validações de entrada
+            If dadoHistorico Is Nothing Then
+                Return New ComandoResult With {
+                    .Success = False,
+                    .Mensagem = "Dado histórico não pode ser nulo"
+                }
+            End If
+            
+            If String.IsNullOrWhiteSpace(dadoHistorico.GroupName) Then
+                Return New ComandoResult With {
+                    .Success = False,
+                    .Mensagem = "Group name não pode ser vazio"
+                }
+            End If
+            
+            If String.IsNullOrWhiteSpace(dadoHistorico.Data) Then
+                Return New ComandoResult With {
+                    .Success = False,
+                    .Mensagem = "Data não pode ser vazia"
+                }
+            End If
+            
+            If connection Is Nothing OrElse connection.State <> ConnectionState.Open Then
+                Dim conexaoResult = Conectar()
+                If Not conexaoResult.Success Then
+                    Return New ComandoResult With {
+                        .Success = False,
+                        .Mensagem = conexaoResult.Mensagem
+                    }
+                End If
+            End If
+            
+            Const insertSql As String = "
+                INSERT OR REPLACE INTO historical_data (
+                    product_id, date, volume, category, priority, group_name,
+                    resolution_time, created_at, updated_at
+                ) VALUES (
+                    @ProductId, @Date, @Volume, @Category, @Priority, @GroupName,
+                    @ResolutionTime, datetime('now', 'localtime'), datetime('now', 'localtime')
+                )"
+            
+            Dim parametros As New Dictionary(Of String, Object)()
+            parametros.Add("ProductId", dadoHistorico.GroupName)
+            parametros.Add("Date", dadoHistorico.Data)
+            parametros.Add("Volume", Math.Max(0, dadoHistorico.Volume))
+            parametros.Add("Category", If(String.IsNullOrEmpty(dadoHistorico.Category), "Não especificado", dadoHistorico.Category))
+            parametros.Add("Priority", If(String.IsNullOrEmpty(dadoHistorico.Priority), "Média", dadoHistorico.Priority))
+            parametros.Add("GroupName", dadoHistorico.GroupName)
+            parametros.Add("ResolutionTime", If(dadoHistorico.ResolutionTime Is Nothing, DBNull.Value, dadoHistorico.ResolutionTime))
+            
+            Return ExecutarComando(insertSql, parametros)
+            
+        Catch ex As Exception
+            Return New ComandoResult With {
+                .Success = False,
+                .Mensagem = $"Erro ao inserir/atualizar dado histórico: {ex.Message}"
+            }
+        End Try
+    End Function
+    
+    ''' <summary>
+    ''' Busca dados agregados de incidentes para inserção na tabela historical_data
+    ''' </summary>
+    Public Function BuscarDadosAgregadosIncidentes() As QueryResult
+        Try
+            If connection Is Nothing OrElse connection.State <> ConnectionState.Open Then
+                Dim conexaoResult = Conectar()
+                If Not conexaoResult.Success Then
+                    Return New QueryResult With {
+                        .Success = False,
+                        .Mensagem = conexaoResult.Mensagem
+                    }
+                End If
+            End If
+            
+            Const selectQuery As String = "
+                SELECT 
+                    GRUPO_DIRECIONADO as group_name,
+                    incident_date as date,
+                    CAST(COUNT(*) AS INTEGER) as volume,
+                    CATEGORIA as category,
+                    PRIORIDADE as priority
+                FROM incidents 
+                WHERE GRUPO_DIRECIONADO IS NOT NULL 
+                  AND incident_date IS NOT NULL
+                  AND GRUPO_DIRECIONADO != ''
+                  AND incident_date != ''
+                GROUP BY GRUPO_DIRECIONADO, incident_date
+                ORDER BY incident_date DESC, GRUPO_DIRECIONADO"
+            
+            Return ExecutarQuery(selectQuery)
+            
+        Catch ex As Exception
+            Return New QueryResult With {
+                .Success = False,
+                .Mensagem = $"Erro ao buscar dados agregados: {ex.Message}"
+            }
+        End Try
+    End Function
+    
+    ''' <summary>
+    ''' Verifica se o banco de dados existe
+    ''' </summary>
+    Public Function VerificarExistenciaBanco() As Boolean
+        Try
+            Return File.Exists(databasePath)
+        Catch ex As Exception
+            Return False
+        End Try
+    End Function
+    
+    ''' <summary>
     ''' Fecha a conexão com o banco
     ''' </summary>
     Public Sub Desconectar()
@@ -213,5 +637,20 @@ End Class
 Public Class TabelaInfo
     Public Property Nome As String
     Public Property Registros As Long
+End Class
+
+Public Class ComandoResult
+    Public Property Success As Boolean
+    Public Property Mensagem As String
+    Public Property LinhasAfetadas As Integer
+End Class
+
+Public Class DadoHistorico
+    Public Property GroupName As String
+    Public Property Data As String
+    Public Property Volume As Integer
+    Public Property Category As String
+    Public Property Priority As String
+    Public Property ResolutionTime As Object
 End Class
 
