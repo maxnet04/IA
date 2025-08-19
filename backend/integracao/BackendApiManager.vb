@@ -13,7 +13,7 @@ Public Class BackendApiManager
     Private backendProcess As Process
     Private ReadOnly backendExePath As String
     Private ReadOnly backendPort As Integer = 3000
-    Private ReadOnly httpClient As New HttpClient()
+    Private httpClient As HttpClient
 
     ' Eventos para comunicação com a UI
     Public Event StatusChanged(message As String)
@@ -28,6 +28,10 @@ Public Class BackendApiManager
         Else
             Me.backendExePath = backendExePath
         End If
+        
+        ' Inicializar HttpClient com timeout
+        httpClient = New HttpClient()
+        httpClient.Timeout = TimeSpan.FromSeconds(5)
     End Sub
 
     Public ReadOnly Property IsRunning As Boolean
@@ -148,7 +152,6 @@ Public Class BackendApiManager
     ''' </summary>
     Private Function PerformHealthCheck() As Boolean
         Try
-            httpClient.Timeout = TimeSpan.FromSeconds(5)
             Dim response = httpClient.GetAsync($"{ApiUrl}/health").Result
 
             If response.IsSuccessStatusCode Then
@@ -180,7 +183,26 @@ Public Class BackendApiManager
             RaiseEvent StatusChanged($"⚠️ Erro ao parar backend: {ex.Message}")
         Finally
             backendProcess = Nothing
+            ' Reinicializar HttpClient para evitar problemas de timeout
+            ResetHttpClient()
             RaiseEvent ServerStopped()
+        End Try
+    End Sub
+    
+    ''' <summary>
+    ''' Reinicializa o HttpClient para evitar problemas de timeout
+    ''' </summary>
+    Private Sub ResetHttpClient()
+        Try
+            If httpClient IsNot Nothing Then
+                httpClient.Dispose()
+            End If
+            httpClient = New HttpClient()
+            httpClient.Timeout = TimeSpan.FromSeconds(5)
+        Catch ex As Exception
+            ' Em caso de erro, criar um novo HttpClient
+            httpClient = New HttpClient()
+            httpClient.Timeout = TimeSpan.FromSeconds(5)
         End Try
     End Sub
 
